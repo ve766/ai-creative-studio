@@ -8,6 +8,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # Browsers are installed explicitly below; skip the package postinstall download.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -34,3 +37,11 @@ jobs:
 
       - name: Production build
         run: pnpm build
+
+      - name: Install Playwright browser
+        run: pnpm --filter @acs/web exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm --filter @acs/web test:e2e
+        env:
+          PW_CHANNEL: chromium

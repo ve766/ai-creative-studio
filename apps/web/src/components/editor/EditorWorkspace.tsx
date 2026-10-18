@@ -63,10 +63,10 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
-  const viewportRef = useRef({ width: 0, height: 0 });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const savedRef = useRef<string | null>(null);
+  const fittedRef = useRef(false);
 
   const selectedLayer = useEditorStore(selectSelectedLayer);
   const canUndo = useEditorStore(selectCanUndo);
@@ -111,18 +111,17 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
   }, [project, status, markSaved, setError, setSaveState]);
 
   useEffect(() => {
-    if (status !== "ready") return;
-    const timer = setTimeout(() => {
-      const size = viewportRef.current;
-      if (size.width > 0 && size.height > 0) {
-        useEditorStore.getState().fitToViewport(size.width, size.height);
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [status]);
+    if (status !== "ready") {
+      fittedRef.current = false;
+      return;
+    }
+    if (fittedRef.current) return;
+    if (viewport.width <= 0 || viewport.height <= 0) return;
+    fittedRef.current = true;
+    fitToViewport(viewport.width, viewport.height);
+  }, [status, viewport, fitToViewport]);
 
   const onViewportResize = useCallback((size: { width: number; height: number }) => {
-    viewportRef.current = size;
     setViewport((current) =>
       current.width === size.width && current.height === size.height ? current : size
     );

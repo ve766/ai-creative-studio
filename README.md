@@ -54,6 +54,7 @@ pnpm start        # 运行生产构建
 pnpm typecheck    # 全部包的 TypeScript 检查
 pnpm lint         # ESLint
 pnpm test         # 全部单元测试
+pnpm test:e2e     # 生产构建 + 真实浏览器 E2E（Playwright，需本机 Chrome 或已安装 chromium）
 ```
 
 ## 目录结构
@@ -77,13 +78,14 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 单元测试 | `pnpm test` | 64 通过 / 0 失败（5 个测试文件组） |
+| 单元测试 | `pnpm test` | 64 通过 / 0 失败（9 个测试文件） |
 | 类型检查 | `pnpm typecheck` | 通过（4 个包 + web） |
 | 静态检查 | `pnpm lint` | 通过，0 错误 0 警告 |
 | 生产构建 | `pnpm build` | 成功，10 条路由 |
-| 运行时冒烟 | `pnpm start` + HTTP 请求 | `/`、`/templates`、`/projects`、`/ai`、`/pricing`、`/account`、模板 SVG 均返回 200 |
+| 运行时冒烟 | `pnpm start` + HTTP 请求 | 9 条页面路由 + 模板 SVG 均返回 200 |
+| 浏览器 E2E | `pnpm test:e2e` | 3 通过 / 0 失败（桌面 2 + 移动端 1；真实 Chrome） |
 
-详细测试范围见 `docs/testing.md`。
+详细测试范围见 `docs/testing.md`；版本审查报告见 `docs/release-review-t0.1.0.md`。
 
 ## 重要说明
 
@@ -104,4 +106,5 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 - `docs/print-export.md` 印刷尺寸、DPI、出血与导出规则
 - `docs/security.md` 认证、授权、密钥与隐私策略
 - `docs/testing.md` 测试命令、覆盖范围与真实结果
+- `docs/release-review-t0.1.0.md` t0.1.0 版本审查报告（架构、已实现/未实现、缺陷与风险）
 - `PROJECT_STATUS.md` 当前进度、已知问题与下一步

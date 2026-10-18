@@ -4,3 +4,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  # Playwright browser download is skipped locally and in CI; browsers are
+  # provided by the installed Chrome (channel: chrome) or explicit
+  # `playwright install chromium` in CI.
+  playwright: true

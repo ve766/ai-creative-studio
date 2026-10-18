@@ -25,7 +25,6 @@ function buildKonvaNode(layer: Layer, image: HTMLImageElement | null): Konva.Ima
     x: layer.x,
     y: layer.y,
     width: layer.width,
-    height: layer.height,
     rotation: layer.rotation,
     opacity: layer.opacity,
     listening: false
@@ -35,6 +34,7 @@ function buildKonvaNode(layer: Layer, image: HTMLImageElement | null): Konva.Ima
     if (!image) return null;
     return new Konva.Image({
       ...common,
+      height: layer.height,
       image,
       crop: layer.crop
         ? { x: layer.crop.x, y: layer.crop.y, width: layer.crop.width, height: layer.crop.height }
@@ -42,6 +42,7 @@ function buildKonvaNode(layer: Layer, image: HTMLImageElement | null): Konva.Ima
     });
   }
 
+  // Text keeps an automatic height: a fixed height would clip overflowing lines.
   return new Konva.Text({
     ...common,
     text: layer.text,

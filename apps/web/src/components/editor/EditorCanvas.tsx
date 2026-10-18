@@ -114,11 +114,40 @@ function ImageLayerNode({ layer, draggable, onSelect, onCommit, registerRef }: L
 
 function TextLayerNode({ layer, draggable, onSelect, onCommit, registerRef }: LayerNodeProps) {
   const nodeRef = useRef<Konva.Text | null>(null);
+  const measuredHeightRef = useRef(layer.height);
+  const onCommitRef = useRef(onCommit);
+  const layerId = layer.id;
+
+  const text = layer.type === "text" ? layer.text : "";
+  const fontSize = layer.type === "text" ? layer.fontSize : 0;
+  const fontFamily = layer.type === "text" ? layer.fontFamily : "";
+  const fontWeight = layer.type === "text" ? layer.fontWeight : "normal";
+  const fontStyle = layer.type === "text" ? layer.fontStyle : "normal";
+  const align = layer.type === "text" ? layer.align : "left";
 
   useEffect(() => {
-    registerRef(layer.id, nodeRef.current);
-    return () => registerRef(layer.id, null);
-  }, [layer.id, registerRef]);
+    onCommitRef.current = onCommit;
+  });
+
+  const syncHeight = useCallback(() => {
+    const node = nodeRef.current;
+    if (!node || fontSize <= 0) return;
+    const measured = Math.round(node.height() * 100) / 100;
+    if (Math.abs(measured - measuredHeightRef.current) < 0.5) return;
+    measuredHeightRef.current = measured;
+    onCommitRef.current(layerId, { height: measured });
+  }, [fontSize, layerId]);
+
+  useEffect(() => {
+    registerRef(layerId, nodeRef.current);
+    return () => registerRef(layerId, null);
+  }, [layerId, registerRef]);
+
+  // Konva clips text that does not fit a fixed height, so the node keeps an
+  // automatic height and the measured value is written back to the project.
+  useEffect(() => {
+    syncHeight();
+  }, [syncHeight, text, layer.width, fontFamily, fontWeight, align]);
 
   if (layer.type !== "text") return null;
 
@@ -128,20 +157,19 @@ function TextLayerNode({ layer, draggable, onSelect, onCommit, registerRef }: La
         nodeRef.current = node;
         registerRef(layer.id, node);
       }}
-      text={layer.text}
+      text={text}
       x={layer.x}
       y={layer.y}
       width={layer.width}
-      height={layer.height}
       rotation={layer.rotation}
       opacity={layer.opacity}
       visible={layer.visible}
       draggable={draggable}
-      fontSize={layer.fontSize}
-      fontFamily={layer.fontFamily}
-      fontStyle={`${layer.fontStyle} ${layer.fontWeight}`.trim()}
+      fontSize={fontSize}
+      fontFamily={fontFamily}
+      fontStyle={`${fontStyle} ${fontWeight}`.trim()}
       fill={layer.fill}
-      align={layer.align}
+      align={align}
       wrap="word"
       onMouseDown={() => onSelect(layer.id)}
       onTouchStart={() => onSelect(layer.id)}
@@ -149,14 +177,12 @@ function TextLayerNode({ layer, draggable, onSelect, onCommit, registerRef }: La
       onTransformEnd={(event) => {
         const node = event.target;
         const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
         node.scaleX(1);
         node.scaleY(1);
         onCommit(layer.id, {
           x: node.x(),
           y: node.y(),
           width: Math.max(8, node.width() * scaleX),
-          height: Math.max(8, node.height() * scaleY),
           rotation: node.rotation()
         });
       }}
