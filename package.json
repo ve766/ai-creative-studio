@@ -2,6 +2,7 @@
   "name": "ai-creative-studio",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "AI Creative Studio - cloud-first AI cultural-creative mockup & design platform",
   "packageManager": "pnpm@11.23.0",
   "scripts": {

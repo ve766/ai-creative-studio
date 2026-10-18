@@ -105,3 +105,7 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 - `docs/security.md` 认证、授权、密钥与隐私策略
 - `docs/testing.md` 测试命令、覆盖范围与真实结果
 - `PROJECT_STATUS.md` 当前进度、已知问题与下一步
+
+## 许可证
+
+本项目基于 [MIT 许可证](LICENSE) 开源：可自由使用、修改、分发与商用，仅需保留版权与许可声明。
