@@ -1,23 +1,39 @@
 import Konva from "konva";
 import type { Layer, Project } from "@acs/project-schema";
-import { requiredPixelsForPrint } from "@acs/editor-core";
+import { planExport, type ExportMode } from "@acs/editor-core";
 import { loadImageElement } from "./image";
 
-export type ExportMode = "preview" | "print";
+export type { ExportMode };
 
 export interface ExportOptions {
   mode: ExportMode;
   maxPixelRatio?: number;
 }
 
-const MAX_PRINT_SCALE = 4;
+export class ExportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ExportError";
+  }
+}
 
-export function computePixelRatio(project: Project, mode: ExportMode): number {
-  if (mode === "preview") return 1;
-  const print = project.print;
-  if (!print) return 1;
-  const targetPx = requiredPixelsForPrint(print.targetWidthMm, print.dpi);
-  return Math.min(targetPx / project.canvas.width, MAX_PRINT_SCALE);
+export interface ExportResult {
+  dataUrl: string;
+  width: number;
+  height: number;
+  pixelRatio: number;
+  capped: boolean;
+  warning: string | null;
+}
+
+export function describePrintExport(project: Project) {
+  return planExport({
+    canvasWidth: project.canvas.width,
+    canvasHeight: project.canvas.height,
+    mode: "print",
+    targetWidthMm: project.print?.targetWidthMm ?? null,
+    targetDpi: project.print?.dpi ?? null
+  });
 }
 
 function buildKonvaNode(layer: Layer, image: HTMLImageElement | null): Konva.Image | Konva.Text | null {
@@ -58,8 +74,18 @@ function buildKonvaNode(layer: Layer, image: HTMLImageElement | null): Konva.Ima
 export async function renderProjectToDataUrl(
   project: Project,
   options: ExportOptions
-): Promise<string> {
-  const pixelRatio = computePixelRatio(project, options.mode);
+): Promise<ExportResult> {
+  const planned = planExport({
+    canvasWidth: project.canvas.width,
+    canvasHeight: project.canvas.height,
+    mode: options.mode,
+    targetWidthMm: project.print?.targetWidthMm ?? null,
+    targetDpi: project.print?.dpi ?? null,
+    maxPrintScale: options.maxPixelRatio
+  });
+  if (!planned.ok) throw new ExportError(planned.message);
+
+  const { plan } = planned;
   const container = document.createElement("div");
   container.style.position = "fixed";
   container.style.left = "-10000px";
@@ -93,8 +119,27 @@ export async function renderProjectToDataUrl(
       if (node) layer.add(node);
     }
     layer.draw();
-    const dataUrl = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
-    return dataUrl;
+    let dataUrl: string;
+    try {
+      dataUrl = stage.toDataURL({ pixelRatio: plan.pixelRatio, mimeType: "image/png" });
+    } catch (error) {
+      throw new ExportError(
+        `浏览器无法生成 ${plan.outputWidth}×${plan.outputHeight}px 的图片（可能内存不足），请降低画布尺寸或改用较小尺寸导出：${
+          error instanceof Error ? error.message : "未知错误"
+        }`
+      );
+    }
+    if (!dataUrl || !dataUrl.startsWith("data:image/png")) {
+      throw new ExportError("导出结果为空，请重试或降低画布尺寸");
+    }
+    return {
+      dataUrl,
+      width: plan.outputWidth,
+      height: plan.outputHeight,
+      pixelRatio: plan.pixelRatio,
+      capped: plan.capped,
+      warning: plan.warning
+    };
   } finally {
     stage.destroy();
     container.remove();

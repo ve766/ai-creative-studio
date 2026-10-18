@@ -1,4 +1,12 @@
-import { ProjectSchema, createId, nowIso, toProjectSummary } from "@acs/project-schema";
+import {
+  ProjectSchema,
+  SCHEMA_VERSION,
+  createId,
+  detectSchemaVersion,
+  nowIso,
+  toProjectSummary,
+  tryMigrateProject
+} from "@acs/project-schema";
 import type { Project, ProjectSummary } from "@acs/project-schema";
 import { STORAGE_KEYS } from "./app-config";
 
@@ -13,6 +21,18 @@ export class StorageQuotaError extends Error {
     super(message);
     this.name = "StorageQuotaError";
   }
+}
+
+export type ProjectLoadFailureReason = "MISSING" | "INVALID" | "FUTURE_VERSION";
+
+export type ProjectLoadResult =
+  | { ok: true; project: Project; migrated: boolean }
+  | { ok: false; reason: ProjectLoadFailureReason; message: string };
+
+export interface UnreadableProject {
+  id: string;
+  reason: ProjectLoadFailureReason;
+  message: string;
 }
 
 export class ProjectRepository {
@@ -60,20 +80,60 @@ export class ProjectRepository {
     }
   }
 
+  private parseStored(value: unknown): ProjectLoadResult {
+    const detected = detectSchemaVersion(value);
+    if (detected !== null && detected > SCHEMA_VERSION) {
+      return {
+        ok: false,
+        reason: "FUTURE_VERSION",
+        message: `该项目由更新版本的应用创建（schemaVersion ${detected}，当前支持 ${SCHEMA_VERSION}），请升级应用后再打开`
+      };
+    }
+    const result = tryMigrateProject(value);
+    if (result.ok) {
+      return {
+        ok: true,
+        project: result.project,
+        migrated: detected !== null && detected < SCHEMA_VERSION
+      };
+    }
+    if (result.error.code === "VERSION_TOO_NEW") {
+      return { ok: false, reason: "FUTURE_VERSION", message: result.error.message };
+    }
+    return { ok: false, reason: "INVALID", message: result.error.message };
+  }
+
+  load(id: string): ProjectLoadResult {
+    const map = this.readMap();
+    if (!Object.prototype.hasOwnProperty.call(map, id)) {
+      return { ok: false, reason: "MISSING", message: "本地存储中没有该项目" };
+    }
+    return this.parseStored(map[id]);
+  }
+
   list(): ProjectSummary[] {
     const map = this.readMap();
     const summaries: ProjectSummary[] = [];
     for (const value of Object.values(map)) {
-      const parsed = ProjectSchema.safeParse(value);
-      if (parsed.success) summaries.push(toProjectSummary(parsed.data));
+      const result = this.parseStored(value);
+      if (result.ok) summaries.push(toProjectSummary(result.project));
     }
     return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  get(id: string): Project | null {
+  listUnreadable(): UnreadableProject[] {
     const map = this.readMap();
-    const parsed = ProjectSchema.safeParse(map[id]);
-    return parsed.success ? parsed.data : null;
+    const broken: UnreadableProject[] = [];
+    for (const [id, value] of Object.entries(map)) {
+      const result = this.parseStored(value);
+      if (!result.ok) broken.push({ id, reason: result.reason, message: result.message });
+    }
+    return broken;
+  }
+
+  get(id: string): Project | null {
+    const result = this.load(id);
+    return result.ok ? result.project : null;
   }
 
   create(project: Project): Project {
@@ -131,17 +191,12 @@ export class ProjectRepository {
     } catch {
       return { ok: false, message: "文件不是合法的 JSON" };
     }
-    const parsed = ProjectSchema.safeParse(raw);
-    if (!parsed.success) {
-      return {
-        ok: false,
-        message: `项目数据校验失败：${parsed.error.issues
-          .map((issue) => issue.message)
-          .join("; ")}`
-      };
+    const result = this.parseStored(raw);
+    if (!result.ok) {
+      return { ok: false, message: result.message };
     }
     const timestamp = nowIso();
-    const project = { ...parsed.data, id: createId("prj"), updatedAt: timestamp };
+    const project = { ...result.project, id: createId("prj"), updatedAt: timestamp };
     return { ok: true, project: this.create(project) };
   }
 

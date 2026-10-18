@@ -87,3 +87,80 @@ describe("editor store", () => {
     expect(useEditorStore.getState().error).toBeTruthy();
   });
 });
+
+describe("editor store edit sessions", () => {
+  beforeEach(reset);
+
+  function addTextLayer() {
+    useEditorStore.getState().addLayer(createTextLayer({ id: "l1", text: "", x: 0, y: 0 }));
+    return useEditorStore.getState();
+  }
+
+  it("collapses a typing session into a single undo step", () => {
+    addTextLayer();
+    const before = useEditorStore.getState().history?.past.length ?? 0;
+
+    for (const value of ["a", "ab", "abc"]) {
+      useEditorStore.getState().updateLayerTransient("l1", { text: value });
+    }
+    useEditorStore.getState().commitHistory();
+
+    const state = useEditorStore.getState();
+    expect(state.project?.layers[0]).toMatchObject({ text: "abc" });
+    expect(state.history?.past.length).toBe(before + 1);
+    expect(state.editSession).toBe(false);
+
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "" });
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "abc" });
+  });
+
+  it("starts a new undo step after the previous session is committed", () => {
+    addTextLayer();
+    useEditorStore.getState().updateLayerTransient("l1", { text: "第一段" });
+    useEditorStore.getState().commitHistory();
+    useEditorStore.getState().updateLayerTransient("l1", { text: "第二段" });
+    useEditorStore.getState().commitHistory();
+
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "第一段" });
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "" });
+  });
+
+  it("ends the session when a normal committed action happens", () => {
+    addTextLayer();
+    useEditorStore.getState().updateLayerTransient("l1", { text: "abc" });
+    expect(useEditorStore.getState().editSession).toBe(true);
+
+    useEditorStore.getState().updateLayer("l1", { x: 50 });
+    expect(useEditorStore.getState().editSession).toBe(false);
+
+    useEditorStore.getState().updateLayerTransient("l1", { text: "abcd" });
+    useEditorStore.getState().commitHistory();
+
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "abc", x: 50 });
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "abc", x: 0 });
+  });
+
+  it("ends the session on undo so the next edit becomes its own step", () => {
+    addTextLayer();
+    useEditorStore.getState().updateLayerTransient("l1", { text: "abc" });
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().editSession).toBe(false);
+    expect(useEditorStore.getState().project?.layers[0]).toMatchObject({ text: "" });
+  });
+
+  it("drops the redo stack once a transient edit starts", () => {
+    addTextLayer();
+    useEditorStore.getState().updateLayer("l1", { x: 10 });
+    useEditorStore.getState().undo();
+    expect(selectCanRedo(useEditorStore.getState())).toBe(true);
+
+    useEditorStore.getState().updateLayerTransient("l1", { text: "新内容" });
+    expect(selectCanRedo(useEditorStore.getState())).toBe(false);
+  });
+});

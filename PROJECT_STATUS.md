@@ -1,8 +1,8 @@
 # PROJECT_STATUS
 
 更新时间：2026-10-18
-当前版本：v0.1.0（已在私有仓库交付）；开发中分支：`feature/t0.2.0`
-当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 正在做「审查修复 + 真实浏览器 E2E + 质量补齐」
+当前版本：v0.1.0（已在 **PUBLIC / MIT** 仓库交付）；开发中分支：`feature/t0.2.0`
+当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）」已完成，下一步为阶段 4（云端项目保存基础）
 
 ---
 
@@ -61,57 +61,65 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `pnpm -r --filter "./packages/**" test` | 48 通过 / 0 失败 |
-| `pnpm --filter @acs/web test` | 16 通过 / 0 失败 |
-| `pnpm test` | 64 通过 / 0 失败（连续 3 次稳定） |
+| `pnpm -r --filter "./packages/**" test` | 60 通过 / 0 失败 |
+| `pnpm --filter @acs/web test` | 28 通过 / 0 失败 |
+| `pnpm test` | 88 通过 / 0 失败 |
 | `pnpm typecheck` | 全部包通过 |
 | `pnpm lint` | 0 错误 0 警告 |
 | `pnpm build` | 成功，生成 10 条路由 |
 | `pnpm start` + HTTP 冒烟 | 9 条页面路由 + 模板 SVG 全部返回 200 |
-| `pnpm test:e2e` | 3 通过 / 0 失败（desktop 2 + mobile 1，真实 Chrome） |
+| `pnpm test:e2e` | 7 通过 / 0 失败（desktop 6 + mobile 1，真实 Chrome） |
 
 测试文件：
 
-- `packages/project-schema/src/project.test.ts`（8）
+- `packages/project-schema/src/project.test.ts`（12）
 - `packages/template-schema/src/template.test.ts`（4）
 - `packages/template-library/src/templates.test.ts`（6）
 - `packages/editor-core/src/history.test.ts`（5）
 - `packages/editor-core/src/operations.test.ts`（13）
 - `packages/editor-core/src/uploads.test.ts`（5）
 - `packages/editor-core/src/print.test.ts`（7）
-- `apps/web/src/lib/project-repo.test.ts`（8）
-- `apps/web/src/lib/editor-store.test.ts`（8）
+- `packages/editor-core/src/export-budget.test.ts`（8）
+- `apps/web/src/lib/project-repo.test.ts`（15）
+- `apps/web/src/lib/editor-store.test.ts`（13）
 
-E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）→ 低分辨率预检提示 → 真实拖动（坐标增大）→ 旋转 15° / 宽 600 → 保存 → reload 后一致 → 导出效果图 PNG（1600×680 且含图案像素）→ 导出印刷 PNG（2363×1004 = 200mm@300dpi）→ 导出 JSON（`schemaVersion=1`）；文字多行不再被裁切；移动端自动适应窗口 + 底部面板可开关。
+E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）→ 低分辨率预检提示 → 真实拖动（坐标增大）→ 旋转 15° / 宽 600 → 保存 → reload 后一致 → 导出效果图 PNG（1600×680 且含图案像素）→ 导出印刷 PNG（2363×1004 = 200mm@300dpi）→ 导出 JSON（`schemaVersion=1`）；文字多行不再被裁切；连续输入一次 Ctrl+Z 回到输入前文本且可重做；图层下移改变叠放顺序、隐藏状态落库；JSON 导出后可重新导入且几何一致；非项目 JSON 与损坏 PNG 被拒绝且不产生图层；移动端自动适应窗口 + 底部面板可开关。
 
 **尚未执行的测试（不得视为通过）**：
 
 - 移动端真机测试未执行（E2E 仅模拟视口）
-- 多浏览器兼容性测试未执行（E2E 目前只跑本机 Chrome）
+- 多浏览器兼容性测试未执行（E2E 目前只跑本机 Chrome；CI 上的 Chromium 尚未真实运行）
 - 可访问性自动化检查未执行
 - AI / 支付 / 权限相关测试（功能尚未实现）
+- 云端存储 Provider 测试（阶段 4 实现时补）
 
-**偶发失败（待定位根因）**：一次将 `pnpm test` 与 E2E 并行执行时 `packages/template-schema` 曾非 0 退出，随后单独与连续 3 次完整运行均通过，未复现。
+**偶发失败（待定位根因）**：一次将 `pnpm test` 与 E2E 并行执行时 `packages/template-schema` 曾非 0 退出，随后单独与连续 5 次完整运行均通过，未复现。
+
+**已定位的「假失败」**：直接运行 `pnpm --filter @acs/web test:e2e` 时，`webServer` 复用旧 `.next` 生产构建，导致 3 个用例按旧代码失败。结论：E2E 必须用 `pnpm test:e2e`（先构建）。这不是产品缺陷。
 
 ## 3.1 t0.2.0 进度（分支 `feature/t0.2.0`）
 
 已完成：
 
-- 版本审查：`docs/release-review-t0.1.0.md`（架构、三种状态、缺陷、风险、安全、云接入现状）
+- 版本审查：`docs/release-review-t0.1.0.md`、`docs/release-review-t0.2.0.md`（架构、三种状态、缺陷、风险、安全、云接入现状、P0/P1 清单）
 - 修复：编辑器打开/移动端不适应窗口（根因：适应逻辑早于动态挂载画布执行，容器尺寸为 0×0）
 - 修复：文字图层多行被裁切（根因：Konva 固定 `height` 丢弃溢出文本；改为自动高度并回写模型）
 - 修复：同仓 vitest / typescript 版本分裂（`project-schema` 由 vitest 2.x 统一至 5.0.5）
-- 新增：Playwright E2E 基础设施与 3 个真实用例，并接入 CI
-- 修正：测试文档与 README 中的用例数字（operations 13、print 7、9 个测试文件）
+- 新增：Playwright E2E 基础设施与 7 个真实用例，并接入 CI（CI 上的 E2E 步骤尚未真实跑过）
+- 修正：测试文档与 README 中的用例数字
+- 阶段 3A（迁移接线）：`applyMigrationChain()` 抽离；`ProjectRepository` 新增 `load()` / `listUnreadable()`，`list()` / `get()` / `importJson()` 全部走迁移；加载失败区分 `MISSING` / `INVALID` / `FUTURE_VERSION`，未来版本项目拒绝加载且**不覆盖原始数据**；编辑器错误页按原因给出中文提示
+- 阶段 3B（历史合并）：`replacePresent()` + 编辑器 `editSession` / `applyTransient()` / `commitHistory()`；文本内容、文字颜色改为「输入期间合并为一步、失焦结束会话」，图层名改为本地草稿 + 失焦提交（顺带消除清空名称时的校验报错）
+- 阶段 3C（导出像素预算）：新增 `packages/editor-core/src/export-budget.ts` 的 `planExport()`（默认 1600 万像素 / 单边 8192px / 印刷倍率上限 4×）；`renderProjectToDataUrl()` 返回真实尺寸与 `capped`/`warning`，`toDataURL` 失败时给出明确中文错误；属性面板显示印刷导出实际像素、超限警告，超限时禁用按钮
+- 阶段 3D（E2E 回归）：新增 `apps/web/e2e/regression.desktop.spec.ts` 4 个用例（撤销/重做合并、图层顺序与可见性、JSON 往返、非法输入拒绝）
 
 进行中 / 待办：
 
-1. 文本与图层名输入逐字提交历史 → 改为「临时更新 + 失焦提交」
-2. 将 Schema 迁移接入 `ProjectRepository.get()` / `importJson()`（当前迁移框架未被调用）
-3. 印刷导出增加总像素预算保护（避免移动端 Safari 画布超限）
+1. 阶段 4 云端项目保存基础（Provider 接口 + 假实现 + SQL/RLS + 配置校验 + 本地集成测试 + `docs/cloud-setup.md`）
+2. 阶段 5 AI 生成 Provider 接口与审计
+3. 阶段 6 3D / 印刷扩展（仅落地可真实验证部分）
 4. 定位 `pnpm test` 偶发失败根因
-5. 扩展 E2E：撤销/重做、图层顺序与显隐、导入导出往返
-6. 阶段 2 云端项目保存（见 §6）
+5. 上传内容魔数校验（当前只校验扩展名/类型/大小，未校验真实内容）
+6. `usedBytes()` 只统计项目 JSON，未统计其它键；自动保存 800ms 窗口内刷新仍可能丢最后一次编辑
 
 ## 4. 已知问题与限制
 
@@ -121,10 +129,10 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 4. 编辑器字体仅使用系统字体栈，未内嵌字体文件；文字渲染在不同系统上可能有细微差异。
 5. 尚无服务端，因此无多用户权限、无云端同步、无跨设备协作；所有校验都在客户端，可被绕过。
 6. `ImageLayer.crop` 字段已在数据结构中定义，但 UI 尚未提供裁切交互（仅数据层就绪）。
-7. Schema 版本迁移框架（`packages/project-schema/src/migrations.ts`）代码存在，但尚未接入项目加载与导入路径；Schema 升级前必须接入。
-8. 印刷导出像素比上限 4× 为逐轴限制，超大画布在 iOS Safari 上可能超出画布像素上限（未在真机验证）。
-9. 属性面板的文本与图层名输入每次按键都提交一条历史，撤销会逐字回退；图层名清空会触发一次校验错误提示。
-10. 自动保存防抖 800ms，窗口内刷新会丢失最后一次未落盘编辑。
+7. 上传文件只按扩展名/MIME/大小校验，未校验真实内容（魔数）；已列入 t0.2.0 待办。
+8. 印刷导出的像素预算为本机 `toDataURL` 与公开像素上限数值推算，未在 iOS 真机上验证；超限时已改为明确拒绝并提示，而非静默缩小。
+9. 自动保存防抖 800ms，窗口内刷新会丢失最后一次未落盘编辑。
+10. 编辑器 UI 语言为中文，暂未提供英文界面。
 
 ## 5. 阻塞项
 
@@ -134,13 +142,13 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 
 t0.2.0（建议顺序）：
 
-1. 完成 §3.1 的 1–5（历史合并、迁移接线、导出像素预算、偶发失败定位、E2E 扩展）
+1. ~~完成 §3.1 的 1–5（历史合并、迁移接线、导出像素预算、偶发失败定位、E2E 扩展）~~（除「偶发失败定位」外均已完成）
 2. 定义 `AuthProvider` / `ProjectStore` / `ObjectStorage` 接口与可注入假实现（先纯接口，零外部依赖）
-3. 在获得授权后接入托管认证与 PostgreSQL，编写迁移脚本与 RLS 策略
-4. 实现对象存储预签名直传：`POST /api/v1/assets/upload-url` + `POST /api/v1/assets/complete`
+3. 编写 PostgreSQL 迁移脚本与 RLS 策略（本地集成测试用 fake / 内存实现，不连真实云）
+4. 实现对象存储预签名直传设计：`POST /api/v1/assets/upload-url` + `POST /api/v1/assets/complete`（契约与校验先落地，真实接入需用户提供密钥）
 5. 项目 CRUD API（`/api/v1/projects`）与服务端 Schema/权限校验
-6. 前端切换到云端项目仓库（保留本地模式作为离线降级，并提供一次性迁移）
-7. 集成测试：越权访问、模板版本稳定性、自动保存失败反馈
+6. 前端接入云端仓库能力检测：区分「本地保存」与「云端保存（未配置）」，不允许伪造成功
+7. 在获得授权后接入托管认证与 PostgreSQL，编写集成测试：越权访问、模板版本稳定性、自动保存失败反馈
 
 ## 7. 关键命令
 

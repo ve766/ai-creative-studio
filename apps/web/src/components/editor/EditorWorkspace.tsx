@@ -11,7 +11,7 @@ import { LIMITS } from "@/lib/app-config";
 import { useEditorStore, selectCanRedo, selectCanUndo, selectSelectedLayer } from "@/lib/editor-store";
 import { downloadDataUrl, downloadText, renderProjectToDataUrl, safeFilename } from "@/lib/export";
 import { ImageProcessingError, prepareImageFile } from "@/lib/image";
-import { getProjectRepository } from "@/lib/project-repo";
+import { getProjectRepository, type ProjectLoadFailureReason } from "@/lib/project-repo";
 import { LayerPanel } from "./LayerPanel";
 import { PropertyPanel } from "./PropertyPanel";
 
@@ -44,6 +44,8 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
     addLayer,
     removeLayer,
     updateLayer,
+    updateLayerTransient,
+    commitHistory,
     duplicateLayer,
     moveLayer,
     toggleLayer,
@@ -56,6 +58,10 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
   } = store;
 
   const [status, setStatus] = useState<"loading" | "ready" | "missing">("loading");
+  const [loadFailure, setLoadFailure] = useState<{
+    reason: ProjectLoadFailureReason;
+    message: string;
+  } | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [panMode, setPanMode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -78,13 +84,14 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     const repository = getProjectRepository();
-    const found = repository.get(projectId);
-    if (!found) {
+    const result = repository.load(projectId);
+    if (!result.ok) {
+      setLoadFailure({ reason: result.reason, message: result.message });
       setStatus("missing");
       return;
     }
-    load(found);
-    savedRef.current = found.updatedAt;
+    load(result.project);
+    savedRef.current = result.project.updatedAt;
     setStatus("ready");
     return () => unload();
   }, [projectId, load, unload]);
@@ -221,11 +228,12 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
       setBusy(true);
       setLocalError(null);
       try {
-        const dataUrl = await renderProjectToDataUrl(current, { mode });
+        const result = await renderProjectToDataUrl(current, { mode });
         downloadDataUrl(
-          dataUrl,
+          result.dataUrl,
           safeFilename(current.name, mode === "preview" ? "effect" : "print-ref")
         );
+        if (result.warning) setLocalError(result.warning);
       } catch (exportError) {
         setLocalError(exportError instanceof Error ? exportError.message : "导出失败");
       } finally {
@@ -350,14 +358,24 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
   }
 
   if (status === "missing" || !project) {
+    const title =
+      loadFailure?.reason === "FUTURE_VERSION"
+        ? "项目版本过新"
+        : loadFailure?.reason === "INVALID"
+          ? "项目数据无法读取"
+          : "找不到该项目";
+    const body =
+      loadFailure?.reason === "FUTURE_VERSION"
+        ? loadFailure.message
+        : loadFailure?.reason === "INVALID"
+          ? `${loadFailure.message}。原始数据仍保留在本地存储中，未被修改或删除。`
+          : "项目可能已被删除，或保存在其他浏览器的本地存储中。当前版本项目数据保存在本机浏览器。";
     return (
       <div className="editor-root" style={{ display: "grid", placeItems: "center" }}>
         <div className="card" style={{ maxWidth: 420 }}>
           <div className="card-body stack">
-            <h3>找不到该项目</h3>
-            <p className="muted">
-              项目可能已被删除，或保存在其他浏览器的本地存储中。当前版本项目数据保存在本机浏览器。
-            </p>
+            <h3>{title}</h3>
+            <p className="muted">{body}</p>
             <Link href="/projects" className="btn btn-primary">
               返回我的项目
             </Link>
@@ -542,6 +560,11 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
               if (!selectedLayer) return;
               updateLayer(selectedLayer.id, patch);
             }}
+            onUpdateLayerTransient={(patch) => {
+              if (!selectedLayer) return;
+              updateLayerTransient(selectedLayer.id, patch);
+            }}
+            onCommitLayerHistory={commitHistory}
             onCenter={() => selectedLayer && centerLayer(selectedLayer.id)}
             onFit={() => selectedLayer && fitLayerToCanvas(selectedLayer.id)}
             onExport={(mode) => void handleExport(mode)}

@@ -32,6 +32,11 @@ export function canUndo<T>(history: HistoryState<T>): boolean {
   return history.past.length > 0;
 }
 
+export function replacePresent<T>(history: HistoryState<T>, next: T): HistoryState<T> {
+  if (Object.is(next, history.present)) return history;
+  return { past: history.past, present: next, future: [] };
+}
+
 export function canRedo<T>(history: HistoryState<T>): boolean {
   return history.future.length > 0;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createImageLayer, createProject, createTextLayer } from "./factory";
 import { ProjectSchema, SCHEMA_VERSION, toProjectSummary } from "./project";
-import { detectSchemaVersion, migrateProject, tryMigrateProject } from "./migrations";
+import { applyMigrationChain, detectSchemaVersion, migrateProject, tryMigrateProject } from "./migrations";
 
 const canvas = {
   width: 1200,
@@ -102,5 +102,37 @@ describe("project migration", () => {
     const result = tryMigrateProject({ schemaVersion: SCHEMA_VERSION + 5 });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("VERSION_TOO_NEW");
+  });
+});
+
+describe("migration chain", () => {
+  it("applies registered steps in order", () => {
+    const registry = {
+      1: (raw: Record<string, unknown>) => ({ ...raw, step1: true }),
+      2: (raw: Record<string, unknown>) => ({ ...raw, step2: true })
+    };
+    const result = applyMigrationChain({ schemaVersion: 1 }, 1, 3, registry);
+    expect(result).toEqual({ schemaVersion: 1, step1: true, step2: true });
+  });
+
+  it("is a no-op when source and target versions match", () => {
+    const payload = { schemaVersion: 3, keep: "me" };
+    expect(applyMigrationChain(payload, 3, 3, {})).toEqual(payload);
+  });
+
+  it("throws MISSING_MIGRATION when a step is absent", () => {
+    let code = "";
+    try {
+      applyMigrationChain({ schemaVersion: 1 }, 1, 3, { 1: (raw) => raw });
+    } catch (error) {
+      code = error instanceof Error && "code" in error ? String((error as { code: string }).code) : "";
+    }
+    expect(code).toBe("MISSING_MIGRATION");
+  });
+
+  it("does not mutate the input payload", () => {
+    const payload = { schemaVersion: 1, nested: { value: 1 } };
+    applyMigrationChain(payload, 1, 2, { 1: (raw) => ({ ...raw, added: true }) });
+    expect(payload).toEqual({ schemaVersion: 1, nested: { value: 1 } });
   });
 });

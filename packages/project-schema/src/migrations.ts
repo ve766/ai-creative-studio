@@ -25,6 +25,28 @@ export function detectSchemaVersion(raw: unknown): number | null {
   return probe.success ? probe.data.schemaVersion : null;
 }
 
+export function applyMigrationChain(
+  raw: Record<string, unknown>,
+  fromVersion: number,
+  toVersion: number,
+  registry: Record<number, MigrationStep> = MIGRATIONS
+): Record<string, unknown> {
+  let version = fromVersion;
+  let current = raw;
+  while (version < toVersion) {
+    const step = registry[version];
+    if (!step) {
+      throw new ProjectMigrationError(
+        `缺少从版本 ${version} 升级到 ${version + 1} 的迁移步骤`,
+        "MISSING_MIGRATION"
+      );
+    }
+    current = step(current);
+    version += 1;
+  }
+  return current;
+}
+
 export function migrateProject(raw: unknown): Project {
   const detected = detectSchemaVersion(raw);
   if (detected === null) {
@@ -37,20 +59,7 @@ export function migrateProject(raw: unknown): Project {
     );
   }
 
-  let version = detected;
-  let current = raw as Record<string, unknown>;
-
-  while (version < SCHEMA_VERSION) {
-    const step = MIGRATIONS[version];
-    if (!step) {
-      throw new ProjectMigrationError(
-        `缺少从版本 ${version} 升级到 ${version + 1} 的迁移步骤`,
-        "MISSING_MIGRATION"
-      );
-    }
-    current = step(current);
-    version += 1;
-  }
+  const current = applyMigrationChain(raw as Record<string, unknown>, detected, SCHEMA_VERSION);
 
   const parsed = ProjectSchema.safeParse(current);
   if (!parsed.success) {

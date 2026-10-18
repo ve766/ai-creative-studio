@@ -15,6 +15,7 @@ import {
   removeLayer as opRemove,
   renameProject as opRenameProject,
   reorderLayers as opReorder,
+  replacePresent,
   setLayerOpacity as opSetOpacity,
   toggleLayer as opToggle,
   undo,
@@ -37,9 +38,12 @@ export interface EditorState {
   saveState: SaveState;
   lastSavedAt: string | null;
   error: string | null;
+  editSession: boolean;
   load(project: Project): void;
   unload(): void;
   apply(mutator: (project: Project) => Project): void;
+  applyTransient(mutator: (project: Project) => Project): void;
+  commitHistory(): void;
   undo(): void;
   redo(): void;
   select(id: string | null): void;
@@ -53,6 +57,7 @@ export interface EditorState {
   addLayer(layer: Layer): void;
   removeLayer(id: string): void;
   updateLayer(id: string, patch: LayerPatch): void;
+  updateLayerTransient(id: string, patch: LayerPatch): void;
   duplicateLayer(id: string): void;
   moveLayer(id: string, direction: MoveDirection): void;
   toggleLayer(id: string, prop: "visible" | "locked"): void;
@@ -76,6 +81,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   saveState: "idle",
   lastSavedAt: null,
   error: null,
+  editSession: false,
 
   load(project) {
     set({
@@ -86,7 +92,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pan: { x: 0, y: 0 },
       saveState: "idle",
       lastSavedAt: null,
-      error: null
+      error: null,
+      editSession: false
     });
   },
 
@@ -97,7 +104,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedLayerId: null,
       saveState: "idle",
       lastSavedAt: null,
-      error: null
+      error: null,
+      editSession: false
     });
   },
 
@@ -110,25 +118,62 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         project: next,
         history: commit(history, next, HISTORY_LIMIT),
         saveState: "dirty",
-        error: null
+        error: null,
+        editSession: false
       });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "操作失败" });
+      set({ error: error instanceof Error ? error.message : "操作失败", editSession: false });
     }
+  },
+
+  applyTransient(mutator) {
+    const { project, history, editSession } = get();
+    if (!project || !history) return;
+    try {
+      const next = mutator(project);
+      set({
+        project: next,
+        history: editSession
+          ? replacePresent(history, next)
+          : commit(history, next, HISTORY_LIMIT),
+        saveState: "dirty",
+        error: null,
+        editSession: true
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "操作失败", editSession: false });
+    }
+  },
+
+  commitHistory() {
+    if (!get().editSession) return;
+    set({ editSession: false });
   },
 
   undo() {
     const { history } = get();
     if (!history || !canUndo(history)) return;
     const next = undo(history);
-    set({ history: next, project: next.present, saveState: "dirty", error: null });
+    set({
+      history: next,
+      project: next.present,
+      saveState: "dirty",
+      error: null,
+      editSession: false
+    });
   },
 
   redo() {
     const { history } = get();
     if (!history || !canRedo(history)) return;
     const next = redo(history);
-    set({ history: next, project: next.present, saveState: "dirty", error: null });
+    set({
+      history: next,
+      project: next.present,
+      saveState: "dirty",
+      error: null,
+      editSession: false
+    });
   },
 
   select(id) {
@@ -199,6 +244,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateLayer(id, patch) {
     get().apply((project) => opUpdate(project, id, patch));
+  },
+
+  updateLayerTransient(id, patch) {
+    get().applyTransient((project) => opUpdate(project, id, patch));
   },
 
   duplicateLayer(id) {

@@ -97,3 +97,91 @@ describe("project repository", () => {
     expect(() => repo.create(sampleProject())).toThrow(StorageQuotaError);
   });
 });
+
+describe("project repository migration awareness", () => {
+  function storageWith(payload: unknown, key = "prj_legacy") {
+    return createMemoryStorage({
+      "acs.projects.v1": JSON.stringify({ [key]: payload }),
+      "acs.project-order.v1": JSON.stringify([key])
+    });
+  }
+
+  it("reports MISSING for unknown ids instead of pretending the data is broken", () => {
+    const { repo } = makeRepo();
+    const result = repo.load("nope");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("MISSING");
+  });
+
+  it("loads a current-version project without reporting a migration", () => {
+    const { repo } = makeRepo();
+    const project = sampleProject();
+    repo.create(project);
+    const result = repo.load(project.id);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.migrated).toBe(false);
+      expect(result.project.id).toBe(project.id);
+    }
+  });
+
+  it("refuses a future schemaVersion with a clear reason and keeps the raw data intact", () => {
+    const project = sampleProject();
+    const future = { ...project, schemaVersion: 99 };
+    const storage = storageWith(future);
+    const repo = new ProjectRepository(storage);
+
+    const result = repo.load("prj_legacy");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("FUTURE_VERSION");
+
+    expect(repo.get("prj_legacy")).toBeNull();
+    expect(repo.list()).toEqual([]);
+
+    const raw = JSON.parse(storage.getItem("acs.projects.v1") ?? "{}");
+    expect(raw.prj_legacy.schemaVersion).toBe(99);
+    expect(raw.prj_legacy.layers).toEqual(project.layers);
+  });
+
+  it("reports INVALID for payloads without a schemaVersion", () => {
+    const repo = new ProjectRepository(storageWith({ name: "没有版本号" }));
+    const result = repo.load("prj_legacy");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("INVALID");
+  });
+
+  it("lists unreadable records so the UI can warn instead of silently hiding them", () => {
+    const project = sampleProject();
+    const storage = createMemoryStorage({
+      "acs.projects.v1": JSON.stringify({
+        good: project,
+        future: { ...project, id: "future", schemaVersion: 42 },
+        broken: { name: "x" }
+      })
+    });
+    const repo = new ProjectRepository(storage);
+    expect(repo.list().map((item) => item.name)).toEqual([project.name]);
+    const unreadable = repo.listUnreadable();
+    expect(unreadable.map((item) => item.id).sort()).toEqual(["broken", "future"]);
+    expect(unreadable.find((item) => item.id === "future")?.reason).toBe("FUTURE_VERSION");
+    expect(unreadable.find((item) => item.id === "broken")?.reason).toBe("INVALID");
+  });
+
+  it("explains a future-version import instead of leaking raw schema errors", () => {
+    const { repo } = makeRepo();
+    const project = sampleProject();
+    const result = repo.importJson(JSON.stringify({ ...project, schemaVersion: 7 }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("schemaVersion 7");
+      expect(result.message).toContain("请升级应用");
+    }
+  });
+
+  it("explains a payload that is not a project file at all", () => {
+    const { repo } = makeRepo();
+    const result = repo.importJson(JSON.stringify({ hello: "world" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain("schemaVersion");
+  });
+});

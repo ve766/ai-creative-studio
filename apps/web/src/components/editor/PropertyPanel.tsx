@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Layer, LayerPatch, Project } from "@acs/project-schema";
 import type { ProductTemplate } from "@acs/template-schema";
 import type { PreflightIssue } from "@acs/editor-core";
+import { describePrintExport } from "@/lib/export";
 
 interface NumberInputProps {
   label: string;
@@ -69,6 +70,8 @@ export interface PropertyPanelProps {
   busy: boolean;
   onRename: (name: string) => void;
   onUpdateLayer: (patch: LayerPatch) => void;
+  onUpdateLayerTransient: (patch: LayerPatch) => void;
+  onCommitLayerHistory: () => void;
   onCenter: () => void;
   onFit: () => void;
   onExport: (mode: "preview" | "print") => void;
@@ -84,6 +87,8 @@ export function PropertyPanel(props: PropertyPanelProps) {
     busy,
     onRename,
     onUpdateLayer,
+    onUpdateLayerTransient,
+    onCommitLayerHistory,
     onCenter,
     onFit,
     onExport,
@@ -93,9 +98,13 @@ export function PropertyPanel(props: PropertyPanelProps) {
   const [nameDraft, setNameDraft] = useState(project.name);
   useEffect(() => setNameDraft(project.name), [project.name]);
 
+  const [layerNameDraft, setLayerNameDraft] = useState(layer?.name ?? "");
+  useEffect(() => setLayerNameDraft(layer?.name ?? ""), [layer?.id, layer?.name]);
+
   const errors = preflight.filter((issue) => issue.level === "error");
   const warnings = preflight.filter((issue) => issue.level === "warning");
   const infos = preflight.filter((issue) => issue.level === "info");
+  const printPlan = useMemo(() => describePrintExport(project), [project]);
 
   return (
     <div className="panel-scroll">
@@ -134,8 +143,13 @@ export function PropertyPanel(props: PropertyPanelProps) {
               <span className="field-label">图层名称</span>
               <input
                 className="input"
-                value={layer.name}
-                onChange={(event) => onUpdateLayer({ name: event.target.value })}
+                value={layerNameDraft}
+                onChange={(event) => setLayerNameDraft(event.target.value)}
+                onBlur={() => {
+                  const next = layerNameDraft.trim();
+                  if (next && next !== layer.name) onUpdateLayer({ name: next });
+                  else setLayerNameDraft(layer.name);
+                }}
               />
             </label>
             <div className="field-grid">
@@ -176,7 +190,8 @@ export function PropertyPanel(props: PropertyPanelProps) {
                     className="textarea"
                     rows={3}
                     value={layer.text}
-                    onChange={(event) => onUpdateLayer({ text: event.target.value })}
+                    onChange={(event) => onUpdateLayerTransient({ text: event.target.value })}
+                    onBlur={onCommitLayerHistory}
                   />
                 </label>
                 <div className="field-grid">
@@ -221,7 +236,8 @@ export function PropertyPanel(props: PropertyPanelProps) {
                       className="input"
                       type="color"
                       value={layer.fill}
-                      onChange={(event) => onUpdateLayer({ fill: event.target.value })}
+                      onChange={(event) => onUpdateLayerTransient({ fill: event.target.value })}
+                      onBlur={onCommitLayerHistory}
                     />
                   </label>
                   <label className="field" style={{ marginBottom: 0 }}>
@@ -292,12 +308,27 @@ export function PropertyPanel(props: PropertyPanelProps) {
           >
             导出效果图 PNG（{project.canvas.width}×{project.canvas.height}）
           </button>
-          <button type="button" className="btn" disabled={busy} onClick={() => onExport("print")}>
-            导出印刷参考 PNG（按目标 DPI，不放大小图）
+          <button
+            type="button"
+            className="btn"
+            disabled={busy || !printPlan.ok}
+            onClick={() => onExport("print")}
+          >
+            {printPlan.ok
+              ? `导出印刷参考 PNG（${printPlan.plan.outputWidth}×${printPlan.plan.outputHeight}px）`
+              : "导出印刷参考 PNG（当前设备不支持该尺寸）"}
           </button>
           <button type="button" className="btn" onClick={onExportJson}>
             导出项目 JSON
           </button>
+          {!printPlan.ok ? (
+            <div className="notice notice-danger">{printPlan.message}</div>
+          ) : printPlan.plan.capped && printPlan.plan.warning ? (
+            <div className="notice notice-warning">{printPlan.plan.warning}</div>
+          ) : null}
+          <p className="faint" style={{ fontSize: 11.5 }}>
+            效果图用于预览；印刷参考按目标 DPI 计算，不会放大小图以伪造细节。两者都不是印刷厂所需的原始生产文件。
+          </p>
         </div>
       </section>
     </div>
