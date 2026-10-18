@@ -31,6 +31,9 @@
 - Next.js 16 + React 19 + Turbopack 生产构建成功
 - 生产构建冒烟测试通过（HTTP 200）
 - `pnpm-workspace.yaml` 中 `allowBuilds` 已配置 esbuild
+- GitHub Actions CI：`.github/workflows/ci.yml`（install → lint → typecheck → test → build）
+- 本地可选服务：`infra/docker/docker-compose.yml`（仅本地 PostgreSQL，正式运行不依赖）
+- 文档齐全：产品需求、架构、云架构、数据库、API 规范、模板格式、AI 流水线、印刷输出、安全、测试、3 份 ADR
 
 ### 数据契约
 
@@ -122,3 +125,16 @@ pnpm --filter @acs/web build
 
 - 依赖：`next`、`react`、`react-dom`、`konva`、`react-konva`、`zustand`、`zod`、`vitest`、`typescript`、`eslint`、`typescript-eslint`、`@eslint/js`
 - 运行成本：**0**。当前无任何付费外部服务，无云资源，无部署。
+
+## 9. 交付记录（v0.1.0）
+
+- 仓库（**私有**）：https://github.com/ve766/ai-creative-studio
+- 版本标签：`v0.1.0`
+- Release（预发布）：https://github.com/ve766/ai-creative-studio/releases/tag/v0.1.0
+- 主分支：`main`，首个提交 `766fb5d`
+- 可见性已校验：`isPrivate = true`，`visibility = PRIVATE`
+
+注意事项：
+
+- 本地 `git` 使用 Git Credential Manager 推送（gh CLI 令牌缺少 `workflow` 作用域，若改用 `gh` 推送包含 `.github/workflows/` 的提交会被拒绝；当前 CI 文件已成功推送）
+- 正式部署、开通付费服务、生产数据库迁移均需另行授权，本版本未执行任何部署
