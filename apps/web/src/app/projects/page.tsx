@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { CloudStatusNotice } from "@/components/CloudStatusNotice";
 import { ProjectList } from "@/components/ProjectList";
 
 export default function ProjectsPage() {
@@ -17,7 +18,10 @@ export default function ProjectsPage() {
             新建项目
           </Link>
         </div>
-        <ProjectList showImport />
+        <div className="stack" style={{ gap: 14 }}>
+          <CloudStatusNotice />
+          <ProjectList showImport />
+        </div>
       </div>
     </AppShell>
   );

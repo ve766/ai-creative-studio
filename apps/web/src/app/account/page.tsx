@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { CloudStatusNotice } from "@/components/CloudStatusNotice";
 
 export default function AccountPage() {
   return (
@@ -13,6 +14,8 @@ export default function AccountPage() {
         </div>
 
         <div className="grid grid-cards">
+          <CloudStatusNotice />
+
           <section className="card">
             <div className="card-body stack">
               <h2 style={{ fontSize: 16 }}>本地模式说明</h2>

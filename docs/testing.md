@@ -37,18 +37,23 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/editor-core/src/uploads.test.ts` | 5 | 空文件/超限/不支持类型/扩展名不匹配拒绝、尺寸校验、等比缩放 |
 | `packages/editor-core/src/print.test.ts` | 7 | mm↔px 换算、所需像素、低分辨率判定、安全区判定、空设计报告、报告含分辨率发现 |
 | `packages/editor-core/src/export-budget.test.ts` | 8 | 效果图按画布原始像素导出、印刷按目标 DPI、印刷倍率上限、像素预算截断并给出理由、自定义上限、预算不足时拒绝（不静默缩小）、非法画布、缺少目标尺寸时回退 |
+| `packages/cloud-schema/src/api.test.ts` | 6 | 统一成功/失败信封、11 个错误码到 HTTP 状态、可重试错误码集合、失败信封解析与拒绝非法结构、成功 data 按调用方 Schema 校验 |
+| `packages/cloud-schema/src/records.test.ts` | 8 | 项目记录一致性（design.id / ownerId / layerCount）、摘要校验、上传请求与预签名响应校验、完成上传载荷校验、拒绝未知资源类型 |
+| `packages/cloud-core/src/runtime.test.ts` | 14 | 指数退避与上限、超时拒绝并触发 abort、及时返回、仅在可重试错误码上重试、不重试参数错误、达到最大次数抛最后一次错误、非 Provider 错误包装为 INTERNAL、超时+重试组合、令牌桶限流与按 key 隔离、非法限流配置、用量记录与上限裁剪、配置缺失检测 |
+| `packages/cloud-core/src/fakes.test.ts` | 16 | 内存项目仓库创建/列表、越权一律 NOT_FOUND、禁止冒名创建、Schema 校验失败为 VALIDATION_FAILED、乐观并发冲突、复制新 ID 与副本名、按更新时间排序、摘要不含 design；预签名上传→完成登记→重复完成幂等、拒绝他人上传、只能删除自己的资源、非法上传请求；假认证的已知/空/未知 token |
 | `apps/web/src/lib/project-repo.test.ts` | 15 | 创建/读取、损坏数据兜底、保存、排序、复制删除、导入导出、非法导入拒绝、配额错误包装、迁移后加载、`FUTURE_VERSION`（未来版本）拒绝且不覆盖原始数据、`listUnreadable`、导入未来版本与非法 JSON 提示 |
 | `apps/web/src/lib/editor-store.test.ts` | 13 | 加载、添加图层与脏标记、撤销重做、删除后选中态、缩放钳制、适应视口居中、选择器、错误上报、连续输入合并为单步撤销、提交后新操作另起一步、普通操作结束合并会话、撤销结束合并会话、合并期间的编辑清空重做栈 |
+| `apps/web/src/lib/cloud/config.test.ts` | 12 | 默认 local、未知模式回落 local、大小写不敏感、云端缺配置时**不宣称 cloud** 而是回退 local 并说明缺失变量、配置齐全才是 cloud、可选 Provider 缺失单独列出、空白值视为缺失、mock 在生产环境被禁止、UI 存储模式映射、对外状态不泄露内部缺失清单 |
 
-合计：**88 个用例，10 个测试文件**。
+合计：**144 个用例，15 个测试文件**。
 
 ## 4. 实际执行结果（t0.2.0，2026-10-18）
 
 ```
-pnpm test       ->  88 passed / 0 failed
-pnpm typecheck  ->  5 个项目全部通过
+pnpm test       ->  144 passed / 0 failed
+pnpm typecheck  ->  7 个项目全部通过
 pnpm lint       ->  0 errors / 0 warnings
-pnpm build      ->  成功，10 条路由
+pnpm build      ->  成功，11 条路由（含 /api/v1/status）
 pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 ```
 
@@ -95,6 +100,19 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 | 非法输入拒绝（desktop） | 非项目 JSON 导入：提示错误且不跳转；损坏 PNG：提示「解码失败」且不产生图层 |
 | 移动端工作区（mobile） | 进入编辑器自动适应窗口（缩放 < 100%）、底部面板可开关、可上传图案 |
 
+## 4.2 云端配置状态（真实 HTTP 验证）
+
+`pnpm build && pnpm start` 后以四种环境组合请求 `GET /api/v1/status`（端口 3200，`2026-10-18` 实测）：
+
+| 环境 | HTTP | storage | database | problems |
+| --- | --- | --- | --- | --- |
+| 默认（未设置 `CLOUD_MODE`） | 200 | `local` | `not-configured` | 空 |
+| `CLOUD_MODE=cloud`（无凭据） | 200 | `local` | `not-configured` | 明确列出缺少 `DATABASE_URL`、`CLOUD_PROJECT_STORE`，并说明「已回退为本地保存」 |
+| `CLOUD_MODE=mock`（`APP_ENV=dev`） | 200 | `mock` | `mock` | 「开发模拟模式：数据只存在于进程内存」 |
+| `CLOUD_MODE=mock` + `APP_ENV=production` | 200 | `local` | `mock` | 「mock 禁止在 production 使用」 |
+
+结论：未配置云端时接口**从不**返回 `cloud`，也不返回假成功；`requestId` 为每次请求生成。
+
 ## 5. 尚未执行的测试（不得视为通过）
 
 | 项目 | 状态 | 原因 |
@@ -106,7 +124,8 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
 | AI / 权限 / 支付测试 | 未执行 | 功能尚未实现（应使用可注入的假 Provider） |
 | 性能基准（大画布、多图层） | 未执行 | 未建立基准 |
-| 云端存储 Provider | 未执行 | 阶段 4 才实现；本地假实现测试随之补上 |
+| 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
+| SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
 
 > **偶发失败记录（待定位根因）**：一次把 `pnpm test` 与 E2E 并行执行的运行中，`packages/template-schema` 的 vitest 曾以非 0 退出；随后单独运行与连续 5 次完整运行均通过，未复现。疑似并发资源竞争，已列入待办。
 >
@@ -132,10 +151,10 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 
 ## 8. 下一步测试计划
 
-1. 扩展 Playwright 覆盖：移动端拖动与缩放、导入损坏项目文件后的错误页、导出像素预算提示（大画布）
+1. 扩展 Playwright 覆盖：移动端拖动与缩放、导入损坏项目文件后的错误页、导出像素预算提示（大画布）、`/account` 与 `/projects` 的云端状态卡片
 2. 引入组件测试（jsdom + Testing Library）覆盖属性面板与图层面板交互
-3. 阶段 4 起为每个 Provider（云存储、AI 生成）编写假实现测试与契约校验测试
-4. 建立导出尺寸一致性测试（容差断言）与有效 DPI 断言
-5. 为「Schema 迁移接入加载/导入路径」补充跨版本夹具（当前只有 1 个 schema 版本，迁移链以构造版本验证）
+3. 在真实 Postgres 上执行 `infra/sql` 并用两个账号验证 RLS（需要数据库环境）
+4. 为真实 Provider 实现补齐契约测试（复用 `fakes.test.ts` 的断言集合）
+5. 建立导出尺寸一致性测试（容差断言）与有效 DPI 断言
 6. 定位并消除 `pnpm test` 偶发失败（记录失败日志，确认是否与并发度有关）
 7. 在 GitHub CI 上真实执行 E2E 步骤（当前工作流只在 `main` push / PR 触发，需用户授权建 PR 或合并）

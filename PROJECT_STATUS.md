@@ -2,7 +2,7 @@
 
 更新时间：2026-10-18
 当前版本：v0.1.0（已在 **PUBLIC / MIT** 仓库交付）；开发中分支：`feature/t0.2.0`
-当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）」已完成，下一步为阶段 4（云端项目保存基础）
+当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）+ 阶段 4（云端基础：接口、假实现、配置三态、SQL、文档）」已完成，下一步为真实云端接入（需用户决策与授权）
 
 ---
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 0 | 工程审查、Monorepo、架构与产品文档、CI 配置、最小可运行应用 | 已完成 |
 | 1 | 2D MVP：模板库、上传、图层编辑、撤销重做、项目保存恢复、PNG 导出、移动端适配、自动化测试 | 已完成 |
-| 2 | 后端与云端项目（认证、PostgreSQL、对象存储、权限） | 未开始（t0.2.0 主线候选） |
+| 2 | 后端与云端项目（认证、PostgreSQL、对象存储、权限） | 部分：Provider 接口/假实现/配置三态/API 契约/SQL 迁移已就绪；**未接入真实云**（无凭据，SQL 未执行） |
 | 3 | AI 图案工具（Provider 接口、生成、背景移除、额度） | 未开始 |
 | 4 | 真实场景贴图 | 未开始 |
 | 5 | 3D 产品设计 | 未开始 |
@@ -27,12 +27,13 @@
 - pnpm Monorepo：`apps/web` + 4 个 `packages/*`，依赖方向清晰
 - TypeScript 严格模式（含 `noUncheckedIndexedAccess`）全仓通过
 - ESLint 9 flat config 全仓通过
-- Vitest 单元测试 64 项全部通过（全仓统一 vitest `^5.0.5` / typescript `^5.9.3`）
+- Vitest 单元测试 144 项全部通过（全仓统一 vitest `^5.0.5` / typescript `^5.9.3`）
 - Next.js 16 + React 19 + Turbopack 生产构建成功
 - 生产构建冒烟测试通过（HTTP 200）
 - `pnpm-workspace.yaml` 中 `allowBuilds` 已配置 esbuild、playwright
 - GitHub Actions CI：`.github/workflows/ci.yml`（install → lint → typecheck → test → build → Playwright E2E）
 - 真实浏览器 E2E：Playwright（桌面 + Pixel 7 视口），生产构建启动，真实鼠标拖动、localStorage 持久化轮询、PNG 解码与像素校验
+- 云端基础（t0.2.0 阶段 4）：新增 `@acs/cloud-schema`（API 信封/错误码/DTO）与 `@acs/cloud-core`（Provider 接口、运行时保障、内存假实现）；`GET /api/v1/status` 如实返回三态；`infra/sql` 迁移与 RLS 脚本；`docs/cloud-setup.md`
 - 本地可选服务：`infra/docker/docker-compose.yml`（仅本地 PostgreSQL，正式运行不依赖）
 - 文档齐全：产品需求、架构、云架构、数据库、API 规范、模板格式、AI 流水线、印刷输出、安全、测试、版本审查报告、3 份 ADR
 
@@ -61,12 +62,12 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `pnpm -r --filter "./packages/**" test` | 60 通过 / 0 失败 |
-| `pnpm --filter @acs/web test` | 28 通过 / 0 失败 |
-| `pnpm test` | 88 通过 / 0 失败 |
-| `pnpm typecheck` | 全部包通过 |
+| `pnpm -r --filter "./packages/**" test` | 104 通过 / 0 失败 |
+| `pnpm --filter @acs/web test` | 40 通过 / 0 失败 |
+| `pnpm test` | 144 通过 / 0 失败 |
+| `pnpm typecheck` | 7 个项目全部通过 |
 | `pnpm lint` | 0 错误 0 警告 |
-| `pnpm build` | 成功，生成 10 条路由 |
+| `pnpm build` | 成功，生成 11 条路由（新增 `/api/v1/status`） |
 | `pnpm start` + HTTP 冒烟 | 9 条页面路由 + 模板 SVG 全部返回 200 |
 | `pnpm test:e2e` | 7 通过 / 0 失败（desktop 6 + mobile 1，真实 Chrome） |
 
@@ -80,8 +81,13 @@
 - `packages/editor-core/src/uploads.test.ts`（5）
 - `packages/editor-core/src/print.test.ts`（7）
 - `packages/editor-core/src/export-budget.test.ts`（8）
+- `packages/cloud-schema/src/api.test.ts`（6）
+- `packages/cloud-schema/src/records.test.ts`（8）
+- `packages/cloud-core/src/runtime.test.ts`（14）
+- `packages/cloud-core/src/fakes.test.ts`（16）
 - `apps/web/src/lib/project-repo.test.ts`（15）
 - `apps/web/src/lib/editor-store.test.ts`（13）
+- `apps/web/src/lib/cloud/config.test.ts`（12）
 
 E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）→ 低分辨率预检提示 → 真实拖动（坐标增大）→ 旋转 15° / 宽 600 → 保存 → reload 后一致 → 导出效果图 PNG（1600×680 且含图案像素）→ 导出印刷 PNG（2363×1004 = 200mm@300dpi）→ 导出 JSON（`schemaVersion=1`）；文字多行不再被裁切；连续输入一次 Ctrl+Z 回到输入前文本且可重做；图层下移改变叠放顺序、隐藏状态落库；JSON 导出后可重新导入且几何一致；非项目 JSON 与损坏 PNG 被拒绝且不产生图层；移动端自动适应窗口 + 底部面板可开关。
 
@@ -111,11 +117,18 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 - 阶段 3B（历史合并）：`replacePresent()` + 编辑器 `editSession` / `applyTransient()` / `commitHistory()`；文本内容、文字颜色改为「输入期间合并为一步、失焦结束会话」，图层名改为本地草稿 + 失焦提交（顺带消除清空名称时的校验报错）
 - 阶段 3C（导出像素预算）：新增 `packages/editor-core/src/export-budget.ts` 的 `planExport()`（默认 1600 万像素 / 单边 8192px / 印刷倍率上限 4×）；`renderProjectToDataUrl()` 返回真实尺寸与 `capped`/`warning`，`toDataURL` 失败时给出明确中文错误；属性面板显示印刷导出实际像素、超限警告，超限时禁用按钮
 - 阶段 3D（E2E 回归）：新增 `apps/web/e2e/regression.desktop.spec.ts` 4 个用例（撤销/重做合并、图层顺序与可见性、JSON 往返、非法输入拒绝）
+- 阶段 4（云端基础，接口优先、零外部依赖）：
+  - `@acs/cloud-schema`：统一成功/失败信封、11 个错误码与 HTTP 映射、可重试错误码、项目记录/摘要（含 design.id / ownerId / layerCount 一致性约束）、上传与资源 DTO、云端状态结构
+  - `@acs/cloud-core`：`ProviderError` 统一错误、`callProvider`（默认 15s 超时 + 3 次有限重试 + 指数退避上限 2s）、`RateLimiter` 令牌桶、`UsageRecorder` 用量记录、`describeProviderConfig` 配置检查；`AuthProvider` / `ProjectStore` / `ObjectStorageProvider` 接口；内存假实现（越权一律 `NOT_FOUND`、乐观并发 `CONFLICT`、预签名上传幂等）
+  - `apps/web`：`src/lib/cloud/config.ts` 三态解析（`local` / `mock` / `cloud`，生产环境禁止 mock，缺凭据时回退 local 并说明缺少的**变量名**）；`GET /api/v1/status`；`/account` 与 `/projects` 显示真实存储状态卡片
+  - `infra/sql/0001_init.sql`、`0002_rls.sql`（11 张业务表启用 RLS）与验证说明 `infra/sql/README.md`
+  - `docs/cloud-setup.md`：环境变量用途、启用步骤、Provider 约定、错误映射、安全与成本
+  - 真实 HTTP 验证四种配置组合（见 `docs/testing.md` §4.2），未配置时接口从不返回 `cloud`
 
 进行中 / 待办：
 
-1. 阶段 4 云端项目保存基础（Provider 接口 + 假实现 + SQL/RLS + 配置校验 + 本地集成测试 + `docs/cloud-setup.md`）
-2. 阶段 5 AI 生成 Provider 接口与审计
+1. 真实云端接入（需用户选择供应商并提供凭据）+ 在真实 Postgres 执行 `infra/sql` 并用两个账号验证 RLS
+2. 阶段 5 AI 生成 Provider 接口与审计（复用 `callProvider` / `UsageRecorder` / 假实现模式）
 3. 阶段 6 3D / 印刷扩展（仅落地可真实验证部分）
 4. 定位 `pnpm test` 偶发失败根因
 5. 上传内容魔数校验（当前只校验扩展名/类型/大小，未校验真实内容）
@@ -133,22 +146,30 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 8. 印刷导出的像素预算为本机 `toDataURL` 与公开像素上限数值推算，未在 iOS 真机上验证；超限时已改为明确拒绝并提示，而非静默缩小。
 9. 自动保存防抖 800ms，窗口内刷新会丢失最后一次未落盘编辑。
 10. 编辑器 UI 语言为中文，暂未提供英文界面。
+11. **云端尚未接通**：Provider 只有内存假实现；`infra/sql` 迁移与 RLS 脚本未在真实 Postgres 执行（本机无 Docker / psql）；未获得供应商选择与凭据，因此没有真实登录、云端同步或多设备能力。
+12. `CLOUD_MODE=mock` 仅在开发环境可用，且数据只存在进程内存；生产环境会被强制降级为本地保存并给出告警。
 
 ## 5. 阻塞项
 
-无真实阻塞。所有未完成项均为「尚未开始」，而非「被外部条件卡住」。
+1. **真实数据库验证被环境阻塞**：本机没有 Docker 与 `psql`，`infra/sql/*.sql` 无法执行；需要本地 Postgres 或托管数据库测试实例。
+2. **真实云端接入需用户决策与授权**：供应商选择、账号创建、凭据配置、费用开通均不由本仓库自行决定。
+
+其余未完成项均为「尚未开始」，不是被外部条件卡住。
 
 ## 6. 下一步任务清单
 
 t0.2.0（建议顺序）：
 
 1. ~~完成 §3.1 的 1–5（历史合并、迁移接线、导出像素预算、偶发失败定位、E2E 扩展）~~（除「偶发失败定位」外均已完成）
-2. 定义 `AuthProvider` / `ProjectStore` / `ObjectStorage` 接口与可注入假实现（先纯接口，零外部依赖）
-3. 编写 PostgreSQL 迁移脚本与 RLS 策略（本地集成测试用 fake / 内存实现，不连真实云）
-4. 实现对象存储预签名直传设计：`POST /api/v1/assets/upload-url` + `POST /api/v1/assets/complete`（契约与校验先落地，真实接入需用户提供密钥）
-5. 项目 CRUD API（`/api/v1/projects`）与服务端 Schema/权限校验
-6. 前端接入云端仓库能力检测：区分「本地保存」与「云端保存（未配置）」，不允许伪造成功
-7. 在获得授权后接入托管认证与 PostgreSQL，编写集成测试：越权访问、模板版本稳定性、自动保存失败反馈
+2. ~~定义 `AuthProvider` / `ProjectStore` / `ObjectStorage` 接口与可注入假实现（先纯接口，零外部依赖）~~（已完成）
+3. ~~编写 PostgreSQL 迁移脚本与 RLS 策略~~（已编写，**未执行**）
+4. 在真实 Postgres 上执行迁移、用两个账号验证 RLS（需要数据库环境）
+5. 实现真实 `ProjectStore`（Postgres）与登录态解析，替换内存假实现；接入 `/api/v1/projects` CRUD
+6. 实现对象存储预签名直传（`/api/v1/assets/upload-url` + `/complete`），真实接入需用户提供凭据
+7. 前端在 `storage: "cloud"` 时切换云端仓库，保留本地模式作为离线降级与一次性迁移
+8. 集成测试：越权访问、模板版本稳定性、自动保存失败反馈、并发冲突提示
+9. 阶段 5 AI Provider（同套运行时保障 + 用量记录 + 假实现测试）
+10. 阶段 6 3D/印刷扩展；阶段 8 文档与交付报告
 
 ## 7. 关键命令
 

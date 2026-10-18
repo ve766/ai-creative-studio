@@ -1,4 +1,4 @@
-# AI 文创设计工坊 (AI Creative Studio)
+﻿# AI 文创设计工坊 (AI Creative Studio)
 
 > 把图案、文字与照片准确放到真实文创产品上，完成设计、预览、保存与导出。
 > 云端优先（Cloud-first）、API 优先（API-first）、零自建服务器。
@@ -66,32 +66,34 @@ packages/
   project-schema/      项目 JSON Schema、工厂函数、版本迁移
   template-schema/     产品模板 Schema
   template-library/    10 个示例产品模板与辅助函数
-  editor-core/         纯逻辑：图层操作、历史记录、上传校验、印刷预检
+  editor-core/         纯逻辑：图层操作、历史记录、上传校验、印刷预检、导出像素预算
+  cloud-schema/        云端 API 契约：统一响应信封、错误码、项目/资源 DTO
+  cloud-core/          云端 Provider 接口、超时/重试/限流/用量保障、内存假实现
 assets/                预留：模板素材、3D 模型、字体
-infra/                 预留：本地编排与部署配置
-docs/                  产品、架构、数据库、API、模板、AI、印刷、安全、测试文档
+infra/                 本地编排（可选 PostgreSQL）与数据库迁移脚本 infra/sql
+docs/                  产品、架构、数据库、API、模板、AI、印刷、安全、云端、测试文档
 ```
 
-依赖方向：`apps/web` → `packages/*`；`packages/editor-core` → `packages/project-schema`；`packages/template-library` → `project-schema` + `template-schema`。核心逻辑与 UI 分离，所有操作均可单元测试。
+依赖方向：`apps/web` → `packages/*`；`packages/editor-core` → `packages/project-schema`；`packages/template-library` → `project-schema` + `template-schema`；`packages/cloud-schema` → `project-schema`；`packages/cloud-core` → `cloud-schema` + `project-schema`。核心逻辑与 UI 分离，所有操作均可单元测试。
 
-## 验证结果（v0.1.0 实际执行）
+## 验证结果（t0.2.0 实际执行）
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 单元测试 | `pnpm test` | 64 通过 / 0 失败（9 个测试文件） |
-| 类型检查 | `pnpm typecheck` | 通过（4 个包 + web） |
+| 单元测试 | `pnpm test` | 144 通过 / 0 失败（15 个测试文件） |
+| 类型检查 | `pnpm typecheck` | 通过（7 个项目） |
 | 静态检查 | `pnpm lint` | 通过，0 错误 0 警告 |
-| 生产构建 | `pnpm build` | 成功，10 条路由 |
+| 生产构建 | `pnpm build` | 成功，11 条路由（含 `/api/v1/status`） |
 | 运行时冒烟 | `pnpm start` + HTTP 请求 | 9 条页面路由 + 模板 SVG 均返回 200 |
-| 浏览器 E2E | `pnpm test:e2e` | 3 通过 / 0 失败（桌面 2 + 移动端 1；真实 Chrome） |
+| 浏览器 E2E | `pnpm test:e2e` | 7 通过 / 0 失败（桌面 6 + 移动端 1；真实 Chrome） |
 
-详细测试范围见 `docs/testing.md`；版本审查报告见 `docs/release-review-t0.1.0.md`。
+详细测试范围见 `docs/testing.md`；版本审查报告见 `docs/release-review-t0.1.0.md` 与 `docs/release-review-t0.2.0.md`；云端接入步骤见 `docs/cloud-setup.md`。
 
 ## 重要说明
 
 - 所有产品模板均为**示例模板**，规格未经印刷厂验证，正式商业使用前必须按供应商规格校准。
 - 上传图片会被压缩到最长边 2500px 以适配浏览器本地存储；此限制在接入对象存储后解除。
-- 项目数据保存在浏览器本地存储，跨设备请使用「导出项目 JSON」。
+- 项目数据保存在浏览器本地存储，跨设备请使用「导出项目 JSON」；`docs/cloud-setup.md` 说明如何启用云端保存（未配置时界面只显示「本地保存」，不会伪造云端成功）。
 - 本仓库不包含任何真实 API 密钥、支付凭证或用户数据。
 
 ## 文档
@@ -99,6 +101,7 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 - `docs/product-requirements.md` 产品需求、用户流程与验收标准
 - `docs/architecture.md` 系统架构与模块边界
 - `docs/cloud-architecture.md` 云端服务选型、供应商对比、费用模型与迁移风险
+- `docs/cloud-setup.md` 云端项目保存的配置、运行模式、Provider 约定与启用步骤
 - `docs/database.md` 数据模型与迁移策略
 - `docs/api-spec.md` API 契约与错误格式
 - `docs/template-format.md` 模板与坐标系规范
