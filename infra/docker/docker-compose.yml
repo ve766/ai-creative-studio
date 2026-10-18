@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: acs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: acs
+      POSTGRES_PASSWORD: acs_local_dev_only
+      POSTGRES_DB: acs
+    ports:
+      - "5432:5432"
+    volumes:
+      - acs-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acs -d acs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  acs-postgres-data:

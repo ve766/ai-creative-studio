@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 235 100" role="img" aria-label="马克杯模板预览">
+  <rect width="235" height="100" fill="#f1f5f9"/>
+  <path d="M170 35h20a18 18 0 0 1 0 36h-20z" fill="none" stroke="#94a3b8" stroke-width="7"/>
+  <rect x="22" y="14" width="152" height="72" rx="7" fill="#cbd5e1" stroke="#94a3b8" stroke-width="2.5"/>
+  <rect x="40" y="26" width="112" height="48" rx="3" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-dasharray="7 5"/>
+</svg>

@@ -1,0 +1,135 @@
+import { defineTemplate } from "./define";
+import type { ProductTemplate } from "@acs/template-schema";
+
+export const TEMPLATES: ProductTemplate[] = [
+  defineTemplate({
+    id: "mug-standard",
+    version: 1,
+    category: "mug",
+    name: "标准马克杯",
+    description: "常规 11oz 陶瓷马克杯，画面为环绕贴图。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/mug-standard.svg",
+    canvas: { width: 1600, height: 680, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1600, height: 680 },
+    safeArea: { top: 40, right: 40, bottom: 40, left: 40 },
+    bleed: { top: 24, right: 24, bottom: 24, left: 24 },
+    outputSpec: { widthMm: 200, heightMm: 85, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "tote-bag-standard",
+    version: 1,
+    category: "tote-bag",
+    name: "帆布袋",
+    description: "棉质帆布袋正面贴图区域。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/tote-bag-standard.svg",
+    canvas: { width: 1000, height: 1200, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1000, height: 1200 },
+    safeArea: { top: 40, right: 40, bottom: 40, left: 40 },
+    bleed: { top: 12, right: 12, bottom: 12, left: 12 },
+    outputSpec: { widthMm: 250, heightMm: 300, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "tshirt-basic",
+    version: 1,
+    category: "tshirt",
+    name: "圆领 T 恤",
+    description: "T 恤胸前印花区域。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/tshirt-basic.svg",
+    canvas: { width: 1200, height: 1600, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1200, height: 1600 },
+    safeArea: { top: 80, right: 60, bottom: 80, left: 60 },
+    bleed: { top: 12, right: 12, bottom: 12, left: 12 },
+    outputSpec: { widthMm: 300, heightMm: 400, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "phone-case-standard",
+    version: 1,
+    category: "phone-case",
+    name: "手机壳",
+    description: "通用手机保护壳背面贴图区域。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/phone-case-standard.svg",
+    canvas: { width: 700, height: 1450, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 700, height: 1450 },
+    safeArea: { top: 80, right: 50, bottom: 80, left: 50 },
+    bleed: { top: 20, right: 20, bottom: 20, left: 20 },
+    outputSpec: { widthMm: 70, heightMm: 145, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "notebook-a5",
+    version: 1,
+    category: "notebook",
+    name: "A5 笔记本",
+    description: "A5 笔记本封面贴图区域。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/notebook-a5.svg",
+    canvas: { width: 1181, height: 1676, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1181, height: 1676 },
+    safeArea: { top: 64, right: 64, bottom: 64, left: 64 },
+    bleed: { top: 24, right: 24, bottom: 24, left: 24 },
+    outputSpec: { widthMm: 148, heightMm: 210, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "poster-a2",
+    version: 1,
+    category: "poster",
+    name: "A2 海报",
+    description: "A2 尺寸海报。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/poster-a2.svg",
+    canvas: { width: 1260, height: 1782, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1260, height: 1782 },
+    safeArea: { top: 30, right: 30, bottom: 30, left: 30 },
+    bleed: { top: 9, right: 9, bottom: 9, left: 9 },
+    outputSpec: { widthMm: 420, heightMm: 594, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "mousepad-standard",
+    version: 1,
+    category: "mousepad",
+    name: "大号鼠标垫",
+    description: "800x300mm 桌垫。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/mousepad-standard.svg",
+    canvas: { width: 1600, height: 600, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1600, height: 600 },
+    safeArea: { top: 20, right: 20, bottom: 20, left: 20 },
+    bleed: { top: 6, right: 6, bottom: 6, left: 6 },
+    outputSpec: { widthMm: 800, heightMm: 300, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "cushion-square",
+    version: 1,
+    category: "cushion",
+    name: "方形抱枕",
+    description: "450x450mm 方形抱枕正面。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/cushion-square.svg",
+    canvas: { width: 1200, height: 1200, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1200, height: 1200 },
+    safeArea: { top: 53, right: 53, bottom: 53, left: 53 },
+    bleed: { top: 13, right: 13, bottom: 13, left: 13 },
+    outputSpec: { widthMm: 450, heightMm: 450, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "bottle-standard",
+    version: 1,
+    category: "bottle",
+    name: "运动水杯",
+    description: "不锈钢运动水杯环绕贴图区域。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/bottle-standard.svg",
+    canvas: { width: 800, height: 2100, backgroundColor: "#f8fafc", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 800, height: 2100 },
+    safeArea: { top: 50, right: 50, bottom: 50, left: 50 },
+    bleed: { top: 30, right: 30, bottom: 30, left: 30 },
+    outputSpec: { widthMm: 80, heightMm: 210, dpi: 300, format: "png", verified: false }
+  }),
+  defineTemplate({
+    id: "sticker-square",
+    version: 1,
+    category: "sticker",
+    name: "方形贴纸",
+    description: "100x100mm 方形贴纸，含出血。示例模板，实际印刷规格需供应商确认。",
+    previewImage: "/templates/sticker-square.svg",
+    canvas: { width: 1000, height: 1000, backgroundColor: "#ffffff", dpi: 300, unit: "px" },
+    editableArea: { x: 0, y: 0, width: 1000, height: 1000 },
+    safeArea: { top: 30, right: 30, bottom: 30, left: 30 },
+    bleed: { top: 20, right: 20, bottom: 20, left: 20 },
+    outputSpec: { widthMm: 100, heightMm: 100, dpi: 300, format: "png", verified: false }
+  })
+];

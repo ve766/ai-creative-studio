@@ -1,0 +1,25 @@
+{
+  "name": "ai-creative-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Creative Studio - cloud-first AI cultural-creative mockup & design platform",
+  "packageManager": "pnpm@11.23.0",
+  "scripts": {
+    "dev": "pnpm --filter @acs/web dev",
+    "build": "pnpm -r --filter @acs/web build",
+    "start": "pnpm --filter @acs/web start",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2"
+  },
+
+  "engines": {
+    "node": ">=20"
+  }
+}
