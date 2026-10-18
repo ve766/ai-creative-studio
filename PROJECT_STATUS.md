@@ -128,11 +128,14 @@ pnpm --filter @acs/web build
 
 ## 9. 交付记录（v0.1.0）
 
-- 仓库（**私有**）：https://github.com/ve766/ai-creative-studio
-- 版本标签：`v0.1.0`
+- 仓库（**已开源，PUBLIC**）：https://github.com/ve766/ai-creative-studio
+- 许可证：**MIT**（`LICENSE`，GitHub 已识别 `licenseInfo.key = mit`）
+- 开源前的安全检查：3 次提交、115 个 git 对象全量扫描，未发现密钥/令牌；`.env.example` 全为空值；历史中无本地路径或用户名
+- 公开后可见信息：提交作者 `廖涂 <ltu957403@gmail.com>`、`main` 分支、`v0.1.0` 预发布标签与全部历史
+- 版本标签：`v0.1.0`（指向 `766fb5d`，**未移动、未覆盖**）
 - Release（预发布）：https://github.com/ve766/ai-creative-studio/releases/tag/v0.1.0
-- 主分支：`main`，首个提交 `766fb5d`
-- 可见性已校验：`isPrivate = true`，`visibility = PRIVATE`
+- 主分支：`main`，首个提交 `766fb5d`，开源许可提交 `5dd28fa`
+- 开发分支：`feature/t0.2.0`（从 `46939e9` 起，含缺陷修复、浏览器 E2E 与版本审查报告）
 
 注意事项：
 
