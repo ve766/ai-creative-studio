@@ -2,7 +2,7 @@
 
 更新时间：2026-10-19
 当前版本：v0.1.0（已在 **PUBLIC / MIT** 仓库交付）；开发中分支：`feature/t0.2.0`
-当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）+ 阶段 4（云端基础：接口、假实现、配置三态、SQL、文档）+ 阶段 5（AI 基础：合约、Provider 接口、模拟 Provider、任务与用量、状态接口）」已完成；**Algorithm Engine V1 的 P0（源码审计 + 固定素材 + 可重复基准）、P1（本地图案算法引擎）、P2（本地图像处理算法层）与 P3（编辑器最小集成：图像处理闭环，结果为新增图层）均已完成并通过自动化测试**，下一步为 P4（产品贴图变换预研），真实云端/AI 供应商接入仍需用户决策与授权
+当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）+ 阶段 4（云端基础：接口、假实现、配置三态、SQL、文档）+ 阶段 5（AI 基础：合约、Provider 接口、模拟 Provider、任务与用量、状态接口）」已完成；**Algorithm Engine V1 的 P0（源码审计 + 固定素材 + 可重复基准）、P1（本地图案算法引擎）、P2（本地图像处理算法层）与 P3（编辑器最小集成：图像处理闭环，结果为新增图层）均已完成并通过自动化测试，且已推送至 `origin/feature/t0.2.0`（最新提交 `142f0d7`）**；`main` 未合并、无新标签。下一步为 P4（产品贴图变换预研），真实云端/AI 供应商接入仍需用户决策与授权
 
 ---
 
@@ -163,7 +163,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
   - `apps/web`：`src/lib/ai/config.ts` 环境解析（`AI_MODE` 默认 `off`，生产禁止 `mock`，只返回缺失**变量名**，错误文本掩码密钥）；运行时单例；`GET /api/v1/ai/status`、`POST /api/v1/ai/jobs`（模拟响应带 `x-acs-simulated` 与「不是真实 AI 输出」提示）、`GET /api/v1/ai/jobs/{id}`（仅本人可见）；`/ai` 与 `/account` 展示五态状态卡片；`/ai`、`/account`、`/projects` 改为按请求渲染（避免状态在构建时被固化）
   - 真实 HTTP 验证（E2E 第二实例，`AI_MODE=mock`）：模拟任务成功、结果标记、幂等去重、越权 404、非法参数 422、未启用 503，均为真实请求
   - `docs/ai-pipeline.md` 重写为「已实现 / 未实现」的现状说明
-- Algorithm Engine V1 / P0（源码审计 + 算法测试基础，本地分支未推送）：
+- Algorithm Engine V1 / P0（源码审计 + 算法测试基础，已推送至 origin/feature/t0.2.0）：
   - 源码审计：逐文件通读 `editor-core` / `project-schema` / `template-*` / `apps/web` 编辑器与导出链路，产出 `docs/algorithm-inventory.md`（已有能力 11 项、缺失能力 13 项、数据契约、能力边界、8 项测试缺口）
   - 固定测试素材：`packages/editor-core/src/fixtures.ts`（`RasterImage` 统一 RGBA 形态、参数校验拒绝非法尺寸/通道、`mulberry32` 种子伪随机、棋盘格/渐变/噪声/透明边框，5 个命名素材 + 4 档基准尺寸），13 个用例
   - 稳定指纹：`hashRaster`（两路 32 位 `Math.imul` 混合，输出 `宽x高:16 位十六进制`），作为 P1 缓存复用的基础
@@ -171,7 +171,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
   - 可重复基准：`packages/editor-core/src/algorithms.bench.ts` + `vitest.bench.config.mts` + 根与包内 `pnpm bench`（预热、固定采样、批量操作、最快/最慢、内存 `process.memoryUsage`）；实测数据与结论写入 `docs/algorithm-benchmarks.md`
   - 实测结论（Node v22.23.2）：1MP 单遍像素运算 10–40ms、4.19MP 47–176ms；PNG 编解码 4.19MP 分别 127ms / 236ms；导出规划与预检为微秒级；4×4096² RGBA 实测 arrayBuffers +247.9MB
   - 由基准定位并修复真实性能缺陷：`hashRaster` 的 BigInt 逐字节实现 4.19MP 需 2610ms，改为双路 32 位后 61.8ms（约 42×）
-- Algorithm Engine V1 / P1（本地图案算法引擎，本地分支未推送）：见 §3.2
+- Algorithm Engine V1 / P1（本地图案算法引擎，已推送至 origin/feature/t0.2.0）：见 §3.2
 
 进行中 / 待办：
 
@@ -184,7 +184,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 7. `usedBytes()` 只统计项目 JSON，未统计其它键；自动保存 800ms 窗口内刷新仍可能丢最后一次编辑
 8. Algorithm Engine V1 后续：~~P1 本地图案算法引擎~~（已完成，见 §3.2）、~~P2 图像处理基础~~（已完成，见 §3.3）→ **P3 编辑器最小集成（复用图层与历史，预览分级 + 重操作异步可取消 + 参数非破坏留存）** → P4 产品贴图变换预研（四点透视/网格形变，仅可控传统算法）
 
-## 3.2 Algorithm Engine V1 / P1（本地图案算法引擎，已完成，本地分支未推送）
+## 3.2 Algorithm Engine V1 / P1（本地图案算法引擎，已完成，已推送至 origin/feature/t0.2.0）
 
 交付物：`packages/editor-core/src/errors.ts`、`raster.ts`、`validate.ts`、`pattern/{params,geometry,tile,seamless,arrange,color,pattern,index}.ts`（重构：`RasterImage` 等核心从 `fixtures.ts` 抽出到 `raster.ts`，`fixtures.ts` 继续再导出以保持 P0 测试与 `png.ts` 不变）。
 
@@ -195,7 +195,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 - 文档：新增 `docs/algorithm-patterns.md`（公式、预览/成品分级、确定性、能力边界），更新 `docs/algorithm-inventory.md` / `docs/algorithm-benchmarks.md` §9 / `docs/testing.md` / `README.md`。
 - 诚实边界：`makeSeamless` 是有限宽度边缘融合，不是任意图片一键无缝；插值放大不是超分辨率；旋转 `expand:false` 会裁掉四角；全部为零费用本地算法，未新增运行时依赖。
 
-## 3.3 Algorithm Engine V1 / P2（本地图像处理，已完成，本地分支未推送）
+## 3.3 Algorithm Engine V1 / P2（本地图像处理，已完成，已推送至 origin/feature/t0.2.0）
 
 交付物：`packages/editor-core/src/image/{params,edges,adjust,inspect,ops,index}.ts` + 4 个测试文件（15 + 9 + 14 + 15 = 53 个用例）；`src/index.ts` 新增 `export * from "./image"`。
 
@@ -207,7 +207,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 - 文档：新增 `docs/algorithm-image.md`；更新 `docs/algorithm-inventory.md` / `docs/algorithm-benchmarks.md` §10 / `docs/testing.md` / `README.md`。
 - 编辑器接入：已由 P3 完成（见 §3.4）；锐化/去噪仍按「成品阶段异步执行」的约定保留在算法层，未进入界面。
 
-## 3.4 Algorithm Engine V1 / P3（编辑器最小集成：图像处理闭环，已完成，本地分支未推送）
+## 3.4 Algorithm Engine V1 / P3（编辑器最小集成：图像处理闭环，已完成，已推送至 origin/feature/t0.2.0）
 
 交付物：`apps/web/src/lib/image-ops.ts`（浏览器桥接 + 可注入编解码器 + 图层几何换算）、`apps/web/src/lib/image-ops.test.ts`（19 个用例）、`apps/web/e2e/image-ops.desktop.spec.ts`（1 个真实浏览器闭环）；`PropertyPanel.tsx` 新增「图像处理（生成新图层）」区块；`EditorWorkspace.tsx` 增加处理状态、成功提示与重入保护；`editor-core` 的 `inspect.ts` 增加 `inspectDimensions()` / `buildSizeReport()`（只凭尺寸计算，不分配像素缓冲），供界面做 DPI 提示。
 
@@ -312,7 +312,7 @@ pnpm --filter @acs/web build
 - 版本标签：`v0.1.0`（指向 `766fb5d`，**未移动、未覆盖**）
 - Release（预发布）：https://github.com/ve766/ai-creative-studio/releases/tag/v0.1.0
 - 主分支：`main`，首个提交 `766fb5d`，开源许可提交 `5dd28fa`
-- 开发分支：`feature/t0.2.0`（从 `46939e9` 起，含缺陷修复、浏览器 E2E 与版本审查报告）
+- 开发分支：`feature/t0.2.0`（从 `46939e9` 起，含缺陷修复、浏览器 E2E、版本审查报告与 Algorithm Engine V1 P0–P3）——**已推送至 `origin/feature/t0.2.0`**，最新提交 `142f0d7`（P3 编辑器集成 + 墨玉主题）；`main` 保持 `e8482e7`，未合并、未打新标签
 - 审查报告：`docs/release-review-t0.1.0.md`、`docs/release-review-t0.2.0.md`
 
 注意事项：
