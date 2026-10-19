@@ -152,6 +152,8 @@ pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 > **偶发失败记录（待定位根因）**：一次把 `pnpm test` 与 E2E 并行执行的运行中，`packages/template-schema` 的 vitest 曾以非 0 退出；随后单独运行与连续 5 次完整运行均通过，未复现。疑似并发资源竞争，已列入待办。
 >
 > **已定位并修复的「假失败」**：直接运行 `pnpm --filter @acs/web test:e2e` 时 `webServer` 复用了旧的 `.next` 生产构建，导致 3 个用例按旧代码断言失败。改用 `pnpm test:e2e`（先构建）后全部通过；这不是产品缺陷，已补充到本节说明。
+>
+> **已定位并修复的「时间依赖测试」**：`packages/ai-core/src/verification.test.ts` 有 3 个用例调用了 `toSummary()` 但未传 `now`，`AiVerificationStore` 默认按**真实时钟**判断 24 小时验证有效期，于是硬编码时间戳在跨过 24 小时窗口后失效（2026-10-19 复现：`expected null to be '2026-10-18T09:00:00.000Z'`）。根因是测试依赖墙钟，而非被测逻辑错误。修复：这些用例显式传入 `now`。**约定：任何与时间有关的断言必须注入固定时间，禁止依赖 `Date.now()`。**
 
 ## 6. 关键不可回归行为清单
 
