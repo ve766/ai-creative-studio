@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "bench": "pnpm --filter @acs/editor-core bench",
     "test:e2e": "pnpm build && pnpm --filter @acs/web test:e2e"
   },
   "devDependencies": {

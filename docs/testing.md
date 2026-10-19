@@ -8,12 +8,16 @@ pnpm typecheck            # 全部包 TypeScript 检查
 pnpm lint                 # ESLint
 pnpm build                # 生产构建
 pnpm test:e2e             # 生产构建 + 真实浏览器 E2E（Playwright）
+pnpm bench                # 本地算法基准（@acs/editor-core，非门禁，人工记录）
 
 # 单包
 pnpm --filter @acs/editor-core test
+pnpm --filter @acs/editor-core bench
 pnpm --filter @acs/web test
 pnpm --filter @acs/web test:e2e -- --project=desktop
 ```
+
+> `pnpm bench` 不是提交门禁，它输出真实耗时/内存并把结果人工记入 `docs/algorithm-benchmarks.md`。基准文件命名 `*.bench.ts`，由独立的 `vitest.bench.config.mts` 收集，普通 `pnpm test` 不会执行。
 
 ## 2. 技术选型
 
@@ -37,6 +41,8 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/editor-core/src/uploads.test.ts` | 5 | 空文件/超限/不支持类型/扩展名不匹配拒绝、尺寸校验、等比缩放 |
 | `packages/editor-core/src/print.test.ts` | 7 | mm↔px 换算、所需像素、低分辨率判定、安全区判定、空设计报告、报告含分辨率发现 |
 | `packages/editor-core/src/export-budget.test.ts` | 8 | 效果图按画布原始像素导出、印刷按目标 DPI、印刷倍率上限、像素预算截断并给出理由、自定义上限、预算不足时拒绝（不静默缩小）、非法画布、缺少目标尺寸时回退 |
+| `packages/editor-core/src/fixtures.test.ts` | 13 | 零初始化 RGBA 缓冲区、非法尺寸拒绝、像素读写、整幅填充、棋盘格、确定性渐变、可复现噪声与通道范围、透明边框只影响外圈、种子伪随机序列稳定、`hashRaster` 同输入同输出且可区分、5 个命名素材确定、基准尺寸递增 |
+| `packages/editor-core/src/png.test.ts` | 7 | CRC32 已知向量、编码容器结构（签名/IHDR/IDAT/IEND）、RGBA 往返一致、Alpha 保留、灰度与 RGB 解码为 RGBA、非法数据拒绝、尺寸不一致拒绝 |
 | `packages/cloud-schema/src/api.test.ts` | 6 | 统一成功/失败信封、11 个错误码到 HTTP 状态、可重试错误码集合、失败信封解析与拒绝非法结构、成功 data 按调用方 Schema 校验 |
 | `packages/cloud-schema/src/records.test.ts` | 8 | 项目记录一致性（design.id / ownerId / layerCount）、摘要校验、上传请求与预签名响应校验、完成上传载荷校验、拒绝未知资源类型 |
 | `packages/cloud-core/src/runtime.test.ts` | 14 | 指数退避与上限、超时拒绝并触发 abort、及时返回、仅在可重试错误码上重试、不重试参数错误、达到最大次数抛最后一次错误、非 Provider 错误包装为 INTERNAL、超时+重试组合、令牌桶限流与按 key 隔离、非法限流配置、用量记录与上限裁剪、配置缺失检测 |
@@ -56,16 +62,17 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `apps/web/src/lib/ai/config.test.ts` | 12 | 默认 off 且只给出缺失变量名、未知模式按 off 处理、非生产允许 mock/生产拒绝、**不存在真实适配器时不谎称已实现**、凭据组只按标签列出、live 缺失变量全量列出、错误文本掩码 `sk-...`、三种模式下状态一致、**配置齐全也不得报 verified**、状态不泄露凭据值 |
 | `apps/web/src/lib/ai/routes.test.ts` | 11 | 状态接口 no-store + requestId、mock 模式报 simulated、生产拒绝模拟、**配置凭据不等于 verified**、AI 关闭时创建任务 503、生产创建任务 403、live 模式 503、模拟任务成功且响应带模拟标记与提示、幂等键去重、非法载荷 422 且不建任务、任务读取仅限本人 |
 
-合计：**245 个用例，26 个测试文件**。
+合计：**265 个用例，28 个测试文件**（新增算法测试基础：`fixtures` 13 + `png` 7）。
 
-## 4. 实际执行结果（t0.2.0，2026-10-19）
+## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P0，2026-10-19）
 
 ```
-pnpm test       ->  245 passed / 0 failed
+pnpm lint       ->  0 errors / 0 warnings（exit 0）
 pnpm typecheck  ->  9 个项目全部通过
-pnpm lint       ->  0 errors / 0 warnings
+pnpm test       ->  265 passed / 0 failed（28 个测试文件）
 pnpm build      ->  成功，13 条路由（含 /api/v1/ai/* 3 条）
 pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
+pnpm bench      ->  4 passed（基准脚本自身断言），约 9.5s；实测数据见 docs/algorithm-benchmarks.md
 ```
 
 构建产物路由：
@@ -141,11 +148,13 @@ pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 | 多浏览器兼容测试 | 未执行 | E2E 目前只在本机 Chrome 运行（CI 使用 Chromium，尚未在 GitHub 上跑过） |
 | 可访问性自动化检查 | 未执行 | 未引入 axe 等工具 |
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
-| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的 245 个用例覆盖 |
+| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 265 个用例之一部分） |
 | AI 接口鉴权与额度 | 未执行 | 项目尚无认证基础设施；接口仅在非生产环境的模拟模式下可用，缺口已记录在 `docs/ai-pipeline.md` §7 |
 | 任务队列持久化 | 未执行 | 内存实现；数据库版依赖 `infra/sql`（未执行） |
 | 支付 / 订阅测试 | 未执行 | 功能尚未实现 |
-| 性能基准（大画布、多图层） | 未执行 | 未建立基准 |
+| 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 8.2–9.5s，4 个基准场景通过；数据见 `docs/algorithm-benchmarks.md`。**浏览器与移动端未测** |
+| 算法视觉质量比对 | 未执行 | P0 只测速度与内存；固定样本的人工比对需要 P1 算法就位后进行 |
+| 本地算法 vs 浏览器像素一致性 | 未执行 | Node 侧像素结果与浏览器 canvas 的一致性尚未验证 |
 | 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
 | SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
 
@@ -154,6 +163,8 @@ pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 > **已定位并修复的「假失败」**：直接运行 `pnpm --filter @acs/web test:e2e` 时 `webServer` 复用了旧的 `.next` 生产构建，导致 3 个用例按旧代码断言失败。改用 `pnpm test:e2e`（先构建）后全部通过；这不是产品缺陷，已补充到本节说明。
 >
 > **已定位并修复的「时间依赖测试」**：`packages/ai-core/src/verification.test.ts` 有 3 个用例调用了 `toSummary()` 但未传 `now`，`AiVerificationStore` 默认按**真实时钟**判断 24 小时验证有效期，于是硬编码时间戳在跨过 24 小时窗口后失效（2026-10-19 复现：`expected null to be '2026-10-18T09:00:00.000Z'`）。根因是测试依赖墙钟，而非被测逻辑错误。修复：这些用例显式传入 `now`。**约定：任何与时间有关的断言必须注入固定时间，禁止依赖 `Date.now()`。**
+>
+> **由基准测试定位的「真实性能缺陷」**：`hashRaster` 初版逐字节使用 `BigInt`（FNV-1a 64 位），2048×2048（4.19MP）实测 **2610ms**。修复为两路 32 位 `Math.imul` 混合哈希后降至 **61.8ms**（约 42×），`fixtures.test.ts` 的稳定性与区分度断言保持通过。数据与复现命令见 `docs/algorithm-benchmarks.md`。
 
 ## 6. 关键不可回归行为清单
 
@@ -172,6 +183,9 @@ pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 - AI 服务状态：仅配置凭据不得报 verified；模拟成功不得写入验证记录；模拟调用不得产生实际成本
 - AI 任务可靠性：幂等键去重、重试不产生重复用量、终态只记一条台账、取消与超时正确归类
 - AI 输入校验：供应商特有字段与未知字段一律拒绝，未实现能力返回 NOT_SUPPORTED
+- 固定素材与指纹稳定性：`hashRaster` 同输入必须同输出，不同输入必须可区分（P1 的确定性测试与缓存复用都依赖它）
+- PNG 编解码往返：编码→解码必须逐像素一致，Alpha 不得丢失
+- 本地算法参数校验：非法尺寸/越界/NaN/Infinity 必须拒绝而不是崩溃或产出损坏结果（P1/P2 逐项补齐）
 
 ## 7. 本地存储与测试隔离
 
@@ -186,3 +200,5 @@ pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 5. 建立导出尺寸一致性测试（容差断言）与有效 DPI 断言
 6. 定位并消除 `pnpm test` 偶发失败（记录失败日志，确认是否与并发度有关）
 7. 在 GitHub CI 上真实执行 E2E 步骤（当前工作流只在 `main` push / PR 触发，需用户授权建 PR 或合并）
+8. P1/P2：为每个新算法补齐正常/边界/异常/确定性四类测试，并追加固定样本与浏览器侧一致性验证
+9. 把 `pnpm bench` 的关键指标（预览路径耗时、内存峰值）纳入可选回归提醒（先人工对比，不设硬门禁）

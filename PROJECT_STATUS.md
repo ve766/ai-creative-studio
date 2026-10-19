@@ -2,7 +2,7 @@
 
 更新时间：2026-10-19
 当前版本：v0.1.0（已在 **PUBLIC / MIT** 仓库交付）；开发中分支：`feature/t0.2.0`
-当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）+ 阶段 4（云端基础：接口、假实现、配置三态、SQL、文档）+ 阶段 5（AI 基础：合约、Provider 接口、模拟 Provider、任务与用量、状态接口）」已完成，下一步为真实云端/AI 供应商接入（需用户决策与授权）
+当前阶段：**阶段 1（2D MVP）已完成**，阶段 0（工程与架构）已完成；t0.2.0 的「审查修复 + 阶段 3（迁移接线 / 历史合并 / 导出预算 / E2E 回归）+ 阶段 4（云端基础：接口、假实现、配置三态、SQL、文档）+ 阶段 5（AI 基础：合约、Provider 接口、模拟 Provider、任务与用量、状态接口）」已完成；**Algorithm Engine V1 的 P0（源码审计 + 固定素材 + 可重复基准）已完成**，下一步为 P1（本地图案算法引擎），真实云端/AI 供应商接入仍需用户决策与授权
 
 ---
 
@@ -14,11 +14,12 @@
 | 1 | 2D MVP：模板库、上传、图层编辑、撤销重做、项目保存恢复、PNG 导出、移动端适配、自动化测试 | 已完成 |
 | 2 | 后端与云端项目（认证、PostgreSQL、对象存储、权限） | 部分：Provider 接口/假实现/配置三态/API 契约/SQL 迁移已就绪；**未接入真实云**（无凭据，SQL 未执行） |
 | 3 | AI 图案工具（Provider 接口、生成、背景移除、额度） | 部分：能力/请求/结果/任务/用量合约、Provider 接口、模拟 Provider、任务服务（幂等/重试/超时/限流/并发）、用量台账、状态接口与 UI 已实现并测试；**未接入真实供应商**（无适配器、无凭据、无真实调用） |
-| 4 | 真实场景贴图 | 未开始 |
+| 4 | 真实场景贴图 | 未开始（Algorithm Engine V1 P4 仅计划做四点透视/网格形变预研） |
 | 5 | 3D 产品设计 | 未开始 |
 | 6 | 印刷生产文件 | 部分（预检与参考导出已实现，供应商规格未对接） |
 | 7 | 订阅与商业化 | 未开始（页面与配置骨架已就绪） |
 | 8 | 上线准备 | 未开始 |
+| A | Algorithm Engine V1：本地图案/图像算法引擎（不依赖外部服务） | P0 已完成（审计、固定素材、性能与内存基准）；P1–P3 未开始；P4 仅预研计划 |
 
 ## 2. 本版本已完成
 
@@ -27,7 +28,7 @@
 - pnpm Monorepo：`apps/web` + 4 个 `packages/*`，依赖方向清晰
 - TypeScript 严格模式（含 `noUncheckedIndexedAccess`）全仓通过
 - ESLint 9 flat config 全仓通过
-- Vitest 单元测试 245 项全部通过（全仓统一 vitest `^5.0.5` / typescript `^5.9.3`）
+- Vitest 单元测试 265 项全部通过（全仓统一 vitest `^5.0.5` / typescript `^5.9.3`）
 - Next.js 16 + React 19 + Turbopack 生产构建成功
 - 生产构建冒烟测试通过（HTTP 200）
 - `pnpm-workspace.yaml` 中 `allowBuilds` 已配置 esbuild、playwright
@@ -36,6 +37,7 @@
 - 云端基础（t0.2.0 阶段 4）：新增 `@acs/cloud-schema`（API 信封/错误码/DTO）与 `@acs/cloud-core`（Provider 接口、运行时保障、内存假实现）；`GET /api/v1/status` 如实返回三态；`infra/sql` 迁移与 RLS 脚本；`docs/cloud-setup.md`
 - AI 基础（t0.2.0 阶段 5）：新增 `@acs/ai-schema`（能力/请求/结果/任务/用量/状态合约，严格拒绝供应商特有字段）与 `@acs/ai-core`（`AiProvider` 接口、注册表、模拟 Provider、验证记录、用量台账、任务服务）；`/api/v1/ai/status`、`POST /api/v1/ai/jobs`、`GET /api/v1/ai/jobs/{id}`；`/ai` 与 `/account` 显示真实 AI 状态（未配置 / 开发模拟 / 已配置未验证 / 已验证 / 不可用）
 - 本地可选服务：`infra/docker/docker-compose.yml`（仅本地 PostgreSQL，正式运行不依赖）
+- 算法引擎基础（Algorithm Engine V1 / P0）：`packages/editor-core/src/fixtures.ts`（统一 RGBA 内存形态、参数校验、种子伪随机、棋盘格/渐变/噪声/透明边框固定素材、稳定的整幅指纹 `hashRaster`）、`png.ts`（测试用 8 位 PNG 编解码，Node `zlib`，不从包入口导出）、`algorithms.bench.ts` + `vitest.bench.config.mts`（预热/采样/批量的可重复基准，`pnpm bench`）；并通过基准定位并修复了一个**真实性能缺陷**（`hashRaster` 初版 BigInt 逐字节实现，4.19MP 需 2610ms → 双路 32 位实现 61.8ms，约 42×）；审计结论与实测数据写入 `docs/algorithm-inventory.md` 与 `docs/algorithm-benchmarks.md`
 - 文档齐全：产品需求、架构、云架构、数据库、API 规范、模板格式、AI 流水线、印刷输出、安全、测试、版本审查报告、3 份 ADR
 
 ### 数据契约
@@ -63,14 +65,15 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `pnpm -r --filter "./packages/**" test` | 182 通过 / 0 失败 |
+| `pnpm -r --filter "./packages/**" test` | 202 通过 / 0 失败 |
 | `pnpm --filter @acs/web test` | 63 通过 / 0 失败 |
-| `pnpm test` | 245 通过 / 0 失败（26 个文件） |
+| `pnpm test` | 265 通过 / 0 失败（28 个文件） |
 | `pnpm typecheck` | 9 个项目全部通过 |
 | `pnpm lint` | 0 错误 0 警告 |
 | `pnpm build` | 成功，生成 13 条路由（新增 3 条 `/api/v1/ai/*`） |
 | `pnpm start` + HTTP 冒烟 | 9 条页面路由 + 模板 SVG 全部返回 200 |
 | `pnpm test:e2e` | 14 通过 / 0 失败（desktop 13 + mobile 1，真实 Chrome，双服务实例） |
+| `pnpm bench` | 4 个基准场景通过（约 9.5s）；实测耗时/内存见 `docs/algorithm-benchmarks.md` |
 
 测试文件：
 
@@ -100,6 +103,8 @@
 - `apps/web/src/lib/cloud/config.test.ts`（12）
 - `apps/web/src/lib/ai/config.test.ts`（12）
 - `apps/web/src/lib/ai/routes.test.ts`（11）
+- `packages/editor-core/src/fixtures.test.ts`（13）
+- `packages/editor-core/src/png.test.ts`（7）
 
 E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）→ 低分辨率预检提示 → 真实拖动（坐标增大）→ 旋转 15° / 宽 600 → 保存 → reload 后一致 → 导出效果图 PNG（1600×680 且含图案像素）→ 导出印刷 PNG（2363×1004 = 200mm@300dpi）→ 导出 JSON（`schemaVersion=1`）；文字多行不再被裁切；连续输入一次 Ctrl+Z 回到输入前文本且可重做；图层下移改变叠放顺序、隐藏状态落库；JSON 导出后可重新导入且几何一致；非项目 JSON 与损坏 PNG 被拒绝且不产生图层；移动端自动适应窗口 + 底部面板可开关。
 
@@ -112,12 +117,17 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 - AI 接口的鉴权 / 项目所有权 / 额度扣减未实现也无法测试（项目尚无认证基础设施）
 - 支付 / 权限相关测试（功能尚未实现）
 - 云端存储 Provider 真实数据库与对象存储未测；`infra/sql/*.sql` 未在真实 Postgres 执行
+- **本地算法的浏览器与移动端性能/内存未测**：`pnpm bench` 全部数据来自 Node；Canvas/Worker 耗时、移动端内存峰值与 canvas 像素上限均未验证
+- **本地算法视觉质量比对未执行**：P0 只度量速度与内存，固定样本的人工比对留待 P1
+- Node 侧像素结果与浏览器 canvas 的一致性未验证
 
 **偶发失败（待定位根因）**：一次将 `pnpm test` 与 E2E 并行执行时 `packages/template-schema` 曾非 0 退出，随后单独与连续 5 次完整运行均通过，未复现。
 
 **已定位并修复的「时间依赖测试」**：`packages/ai-core/src/verification.test.ts` 中 3 个用例未向 `toSummary()` 传入 `now`，而验证记录默认按真实时钟判断 24 小时有效期，跨过窗口后必然失败（2026-10-19 复现）。根因是测试依赖墙钟而非逻辑缺陷；修复为显式注入固定时间，并约定「与时间有关的断言必须注入固定时间」。
 
 **已定位的「假失败」**：直接运行 `pnpm --filter @acs/web test:e2e` 时，`webServer` 复用旧 `.next` 生产构建，导致 3 个用例按旧代码失败。结论：E2E 必须用 `pnpm test:e2e`（先构建）。这不是产品缺陷。
+
+**由基准定位的真实性能缺陷（已修复）**：`hashRaster` 初版逐字节使用 `BigInt`（FNV-1a 64 位），2048×2048（4.19MP）实测 **2610ms**，1MP 约 640ms。修复为两路 32 位 `Math.imul` 混合哈希：4.19MP **61.8ms**、1MP **8.2ms**（约 42×），指纹稳定性与区分度断言保持通过。数据见 `docs/algorithm-benchmarks.md` §6。
 
 ## 3.1 t0.2.0 进度（分支 `feature/t0.2.0`）
 
@@ -146,6 +156,14 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
   - `apps/web`：`src/lib/ai/config.ts` 环境解析（`AI_MODE` 默认 `off`，生产禁止 `mock`，只返回缺失**变量名**，错误文本掩码密钥）；运行时单例；`GET /api/v1/ai/status`、`POST /api/v1/ai/jobs`（模拟响应带 `x-acs-simulated` 与「不是真实 AI 输出」提示）、`GET /api/v1/ai/jobs/{id}`（仅本人可见）；`/ai` 与 `/account` 展示五态状态卡片；`/ai`、`/account`、`/projects` 改为按请求渲染（避免状态在构建时被固化）
   - 真实 HTTP 验证（E2E 第二实例，`AI_MODE=mock`）：模拟任务成功、结果标记、幂等去重、越权 404、非法参数 422、未启用 503，均为真实请求
   - `docs/ai-pipeline.md` 重写为「已实现 / 未实现」的现状说明
+- Algorithm Engine V1 / P0（源码审计 + 算法测试基础，本地分支未推送）：
+  - 源码审计：逐文件通读 `editor-core` / `project-schema` / `template-*` / `apps/web` 编辑器与导出链路，产出 `docs/algorithm-inventory.md`（已有能力 11 项、缺失能力 13 项、数据契约、能力边界、8 项测试缺口）
+  - 固定测试素材：`packages/editor-core/src/fixtures.ts`（`RasterImage` 统一 RGBA 形态、参数校验拒绝非法尺寸/通道、`mulberry32` 种子伪随机、棋盘格/渐变/噪声/透明边框，5 个命名素材 + 4 档基准尺寸），13 个用例
+  - 稳定指纹：`hashRaster`（两路 32 位 `Math.imul` 混合，输出 `宽x高:16 位十六进制`），作为 P1 缓存复用的基础
+  - PNG 编解码：`packages/editor-core/src/png.ts`（8 位、非交错、灰度/RGB/RGBA、filter 0–4、`crc32`），7 个用例；**不从包入口导出**，避免 `node:zlib` 进入浏览器产物
+  - 可重复基准：`packages/editor-core/src/algorithms.bench.ts` + `vitest.bench.config.mts` + 根与包内 `pnpm bench`（预热、固定采样、批量操作、最快/最慢、内存 `process.memoryUsage`）；实测数据与结论写入 `docs/algorithm-benchmarks.md`
+  - 实测结论（Node v22.23.2）：1MP 单遍像素运算 10–40ms、4.19MP 47–176ms；PNG 编解码 4.19MP 分别 127ms / 236ms；导出规划与预检为微秒级；4×4096² RGBA 实测 arrayBuffers +247.9MB
+  - 由基准定位并修复真实性能缺陷：`hashRaster` 的 BigInt 逐字节实现 4.19MP 需 2610ms，改为双路 32 位后 61.8ms（约 42×）
 
 进行中 / 待办：
 
@@ -156,6 +174,7 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 5. 定位 `pnpm test` 偶发失败根因
 6. 上传内容魔数校验（当前只校验扩展名/类型/大小，未校验真实内容）
 7. `usedBytes()` 只统计项目 JSON，未统计其它键；自动保存 800ms 窗口内刷新仍可能丢最后一次编辑
+8. Algorithm Engine V1 后续：P1 本地图案算法引擎（平铺/镜像/无缝辅助/排列/密度缩放/颜色变体，含参数校验与确定性）→ P2 图像处理基础（裁切/缩放/透明度/颜色/锐化/去噪/透明边缘清理/有效分辨率）→ P3 编辑器最小集成（复用图层与历史，预览分级 + 长任务可取消）→ P4 产品贴图变换预研（四点透视/网格形变，仅可控传统算法）
 
 ## 4. 已知问题与限制
 
@@ -177,6 +196,11 @@ E2E 断言要点：选模板 → 上传 8×8 PNG（落库且画布 1600×680）�
 16. AI 接口**没有鉴权与额度校验**（请求头 `x-acs-client-id` 仅用于任务隔离，可被伪造），因此仅在非生产环境模拟模式下开放。
 17. AI 任务超时固定 60s，且没有 HTTP 取消接口（服务层已支持取消并有测试）。
 18. `mesh.generate`（3D 生成）只有能力声明，请求会返回 `NOT_SUPPORTED`。
+19. **本地图案/图像算法尚未实现**：平铺、镜像、无缝纹理、排列、密度缩放、颜色变体、裁切、锐化、去噪、透明边缘清理均不存在；P0 只建立了素材、指纹与基准。
+20. `png.ts` 解码器能力有限：仅 8 位、非交错、灰度/RGB/RGBA；**不校验 CRC**；调色板（PLTE）与 16 位文件会明确报错但无对应测试。
+21. 本地算法的性能数据全部来自 **Node 单线程**：浏览器 Canvas/Worker 耗时、移动端内存峰值与 canvas 像素上限均未测量；4K RGBA 单张即 64MB，多副本会迅速逼近移动端上限。
+22. `fixtures.ts` / `png.ts` 未从 `editor-core` 包入口导出（前者为测试工具，后者依赖 `node:zlib`）；若后续需要跨包使用素材，须另行设计不含 Node 依赖的导出路径。
+23. 基准（`pnpm bench`）目前**不是提交门禁**，也没有 CI 阈值；性能回归只能靠人工对比记录。
 
 ## 5. 阻塞项
 
@@ -203,6 +227,14 @@ t0.2.0（建议顺序）：
 11. AI 接口鉴权与额度扣减（依赖阶段 2 账号体系）
 12. 阶段 6 3D/印刷扩展；阶段 8 文档与交付报告
 
+Algorithm Engine V1（当前主线，采用 P0 → P1 → P2 → P3 顺序，P4 视稳定性决定）：
+
+1. ~~P0：源码审计 + 固定素材 + 可重复基准~~（已完成，见 §3.1）
+2. P1：本地图案算法引擎（统一参数类型与校验、结果指纹、平铺、镜像、无缝辅助、排列、密度缩放、颜色变体；每项含正常/边界/异常/确定性测试与固定视觉样本）
+3. P2：图像处理基础（裁切/缩放/透明度/颜色/锐化/基础去噪/透明边缘清理/有效分辨率；保留原始素材与参数，预览与成品分级）
+4. P3：编辑器最小集成（复用图层、项目 Schema、历史与保存；长任务运行态 + 可取消；防重复处理与内存泄漏；不回归既有 E2E）
+5. P4：产品贴图变换预研（四点透视/单应变换、基础网格形变接口、可编辑遮罩；仅在 P1/P2 稳定且工作量可控时进行，否则先交预研报告）
+
 ## 7. 关键命令
 
 ```bash
@@ -210,14 +242,15 @@ pnpm install
 pnpm dev
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm test:e2e
+pnpm bench
 pnpm --filter @acs/editor-core test
 pnpm --filter @acs/web build
 ```
 
 ## 8. 本次新增依赖与成本
 
-- 依赖：`next`、`react`、`react-dom`、`konva`、`react-konva`、`zustand`、`zod`、`vitest`、`typescript`、`eslint`、`typescript-eslint`、`@eslint/js`；t0.2.0 新增 `@playwright/test`（开发依赖）
-- 运行成本：**0**。当前无任何付费外部服务，无云资源，无部署。
+- 依赖：`next`、`react`、`react-dom`、`konva`、`react-konva`、`zustand`、`zod`、`vitest`、`typescript`、`eslint`、`typescript-eslint`、`@eslint/js`；t0.2.0 新增 `@playwright/test`（开发依赖）；Algorithm Engine V1 P0 仅新增 `@types/node`（`@acs/editor-core` 开发依赖，供 `png.ts` 与基准使用），**无任何新运行时依赖、无付费服务**
+- 运行成本：**0**。当前无任何付费外部服务，无云资源，无部署。本地算法不产生任何 API 调用费用
 
 ## 9. 交付记录（v0.1.0）
 
