@@ -1,92 +1,43 @@
-export const RGBA_CHANNELS = 4;
+import {
+  RasterError,
+  RGBA_CHANNELS,
+  createRandom,
+  createRaster,
+  fillRaster,
+  hashRaster,
+  rasterIndex,
+  setPixel,
+  getPixel,
+  toRgba
+} from "./raster";
+
+export {
+  RasterError as FixtureError,
+  RGBA_CHANNELS,
+  createRandom,
+  createRaster,
+  fillRaster,
+  hashRaster,
+  rasterIndex,
+  setPixel,
+  getPixel
+};
+export type { RasterImage, Rgba, Rgb } from "./raster";
+
+import type { RasterImage, Rgb } from "./raster";
+
 export const MAX_FIXTURE_PIXELS = 32_000_000;
-
-export interface RasterImage {
-  readonly width: number;
-  readonly height: number;
-  readonly data: Uint8ClampedArray;
-}
-
-export type Rgba = readonly [number, number, number, number];
-export type Rgb = readonly [number, number, number];
-
-export class FixtureError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "FixtureError";
-  }
-}
 
 function assertPositiveInt(value: number, label: string): void {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new FixtureError(`${label} 必须是正整数，收到 ${String(value)}`);
+    throw new RasterError(`${label} 必须是正整数，收到 ${String(value)}`);
   }
 }
 
 function assertChannel(value: number, label: string): void {
   if (!Number.isFinite(value) || value < 0 || value > 255) {
-    throw new FixtureError(`${label} 必须是 0–255 的有限数字，收到 ${String(value)}`);
+    throw new RasterError(`${label} 必须是 0–255 的有限数字，收到 ${String(value)}`);
   }
-}
-
-export function createRaster(width: number, height: number): RasterImage {
-  assertPositiveInt(width, "宽度");
-  assertPositiveInt(height, "高度");
-  if (width * height > MAX_FIXTURE_PIXELS) {
-    throw new FixtureError(`素材像素数超过上限 ${MAX_FIXTURE_PIXELS}`);
-  }
-  return { width, height, data: new Uint8ClampedArray(width * height * RGBA_CHANNELS) };
-}
-
-export function rasterIndex(image: RasterImage, x: number, y: number): number {
-  if (!Number.isInteger(x) || !Number.isInteger(y)) {
-    throw new FixtureError("像素坐标必须是整数");
-  }
-  if (x < 0 || y < 0 || x >= image.width || y >= image.height) {
-    throw new FixtureError(`像素坐标越界：(${x}, ${y}) 不在 ${image.width}×${image.height} 内`);
-  }
-  return (y * image.width + x) * RGBA_CHANNELS;
-}
-
-export function setPixel(image: RasterImage, x: number, y: number, rgba: Rgba): void {
-  for (const channel of rgba) assertChannel(channel, "颜色通道");
-  const index = rasterIndex(image, x, y);
-  image.data[index] = rgba[0];
-  image.data[index + 1] = rgba[1];
-  image.data[index + 2] = rgba[2];
-  image.data[index + 3] = rgba[3];
-}
-
-export function getPixel(image: RasterImage, x: number, y: number): Rgba {
-  const index = rasterIndex(image, x, y);
-  return [
-    image.data[index] ?? 0,
-    image.data[index + 1] ?? 0,
-    image.data[index + 2] ?? 0,
-    image.data[index + 3] ?? 0
-  ];
-}
-
-export function fillRaster(image: RasterImage, rgba: Rgba): void {
-  for (const channel of rgba) assertChannel(channel, "颜色通道");
-  for (let index = 0; index < image.data.length; index += RGBA_CHANNELS) {
-    image.data[index] = rgba[0];
-    image.data[index + 1] = rgba[1];
-    image.data[index + 2] = rgba[2];
-    image.data[index + 3] = rgba[3];
-  }
-}
-
-export function createRandom(seed: number): () => number {
-  if (!Number.isFinite(seed)) throw new FixtureError(`随机种子必须是有限数字，收到 ${String(seed)}`);
-  let state = Math.floor(seed) >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 export interface CheckerOptions {
@@ -155,7 +106,7 @@ export interface NoiseOptions {
 export function addNoise(image: RasterImage, options: NoiseOptions): void {
   const amplitude = options.amplitude ?? 32;
   if (!Number.isFinite(amplitude) || amplitude < 0 || amplitude > 255) {
-    throw new FixtureError(`噪声幅度必须在 0–255 之间，收到 ${String(amplitude)}`);
+    throw new RasterError(`噪声幅度必须在 0–255 之间，收到 ${String(amplitude)}`);
   }
   const random = createRandom(options.seed);
   const monochrome = options.monochrome ?? true;
@@ -179,13 +130,16 @@ export interface TransparentBorderOptions {
   opaque?: Rgb;
 }
 
-export function fillTransparentBorder(image: RasterImage, options: TransparentBorderOptions = {}): void {
+export function fillTransparentBorder(
+  image: RasterImage,
+  options: TransparentBorderOptions = {}
+): void {
   const thickness = options.thickness ?? 2;
   assertPositiveInt(thickness, "透明边框厚度");
   if (thickness * 2 >= Math.min(image.width, image.height)) {
-    throw new FixtureError("透明边框厚度超过素材尺寸");
+    throw new RasterError("透明边框厚度超过素材尺寸");
   }
-  fillRaster(image, [...(options.opaque ?? [200, 40, 40]), 255] as Rgba);
+  fillRaster(image, toRgba(options.opaque ?? [200, 40, 40]));
   const maxX = image.width - thickness;
   const maxY = image.height - thickness;
   for (let y = 0; y < image.height; y += 1) {
@@ -195,27 +149,6 @@ export function fillTransparentBorder(image: RasterImage, options: TransparentBo
       image.data[(y * image.width + x) * RGBA_CHANNELS + 3] = 0;
     }
   }
-}
-
-export function hashRaster(image: RasterImage): string {
-  let first = 0x811c9dc5;
-  let second = 0x9e3779b9;
-  const data = image.data;
-  for (let index = 0; index < data.length; index += 1) {
-    const value = data[index] ?? 0;
-    first = Math.imul(first ^ value, 0x01000193);
-    second = Math.imul(second + value + 0x9e3779b9, 0x85ebca6b);
-  }
-  const mix = (value: number): string => {
-    let result = value >>> 0;
-    result ^= result >>> 16;
-    result = Math.imul(result, 0x7feb352d) >>> 0;
-    result ^= result >>> 15;
-    result = Math.imul(result, 0x846ca68b) >>> 0;
-    result ^= result >>> 16;
-    return (result >>> 0).toString(16).padStart(8, "0");
-  };
-  return `${image.width}x${image.height}:${mix(first)}${mix(second)}`;
 }
 
 export const FIXTURE_NAMES = [

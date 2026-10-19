@@ -61,18 +61,25 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/ai-core/src/status.test.ts` | 8 | 关闭时列出缺失变量名、模拟模式列出被模拟能力、**生产环境拒绝模拟**、**仅配置凭据不得报 verified**、有真实成功记录才 verified、较新的失败转为 unavailable、真实 Provider 凭据不全时列出缺失名、模拟成功不算验证 |
 | `apps/web/src/lib/ai/config.test.ts` | 12 | 默认 off 且只给出缺失变量名、未知模式按 off 处理、非生产允许 mock/生产拒绝、**不存在真实适配器时不谎称已实现**、凭据组只按标签列出、live 缺失变量全量列出、错误文本掩码 `sk-...`、三种模式下状态一致、**配置齐全也不得报 verified**、状态不泄露凭据值 |
 | `apps/web/src/lib/ai/routes.test.ts` | 11 | 状态接口 no-store + requestId、mock 模式报 simulated、生产拒绝模拟、**配置凭据不等于 verified**、AI 关闭时创建任务 503、生产创建任务 403、live 模式 503、模拟任务成功且响应带模拟标记与提示、幂等键去重、非法载荷 422 且不建任务、任务读取仅限本人 |
+| `packages/editor-core/src/pattern/params.test.ts` | 6 | 默认值、范围与上限拒绝、NaN/Infinity/非整数拒绝、未知枚举拒绝、预算归一化、参数归一化不改变输入 |
+| `packages/editor-core/src/pattern/geometry.test.ts` | 10 | 2×2→1×1 精确面积平均（139）、常量图放大不变、90° 旋转逐像素、`expand` 外接矩形、恒等缩放返回副本、裁切越界拒绝、非整数裁切拒绝 |
+| `packages/editor-core/src/pattern/tile.test.ts` | 10 | 1×1 恒等、平铺尺寸与像素、四向镜像规则（奇列/奇行翻转）、`offsetWrap` 负偏移归一化、像素上限拒绝、非法模式拒绝 |
+| `packages/editor-core/src/pattern/seamless.test.ts` | 8 | 梯度接缝度量（均值 191.25 / 最大 255）、`blend: none` 恒等、边界列严格相等、双轴报告、源图不被修改、非法轴/强度拒绝 |
+| `packages/editor-core/src/pattern/arrange.test.ts` | 13 | 网格/半落位/错位画布尺寸与坐标、间距留空、种子化抖动确定性、alpha 合成（128 与 255）、透明像素忽略、单元越界不写出、像素上限拒绝 |
+| `packages/editor-core/src/pattern/color.test.ts` | 11 | 亮度/对比度/饱和度公式与钳制、灰度化（200/100/50→124）、Alpha 不变、颜色替换容差边界（19 否 / 20 是）、6 个预设唯一且确定性、未知 id 返回原图 |
+| `packages/editor-core/src/pattern/pattern.test.ts` | 12 | 成品尺寸与 `plan`、预览封顶、指纹跨分辨率稳定、源或参数变化导致指纹变化、同种子复现、成品超出预算抛 `TOO_LARGE`、非法参数拒绝、源图不被修改 |
 
-合计：**265 个用例，28 个测试文件**（新增算法测试基础：`fixtures` 13 + `png` 7）。
+合计：**335 个用例，35 个测试文件**（P0 算法基础：`fixtures` 13 + `png` 7；P1 图案引擎：`pattern/*` 70）。
 
-## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P0，2026-10-19）
+## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P1，2026-10-19）
 
 ```
 pnpm lint       ->  0 errors / 0 warnings（exit 0）
 pnpm typecheck  ->  9 个项目全部通过
-pnpm test       ->  265 passed / 0 failed（28 个测试文件）
+pnpm test       ->  335 passed / 0 failed（35 个测试文件）
 pnpm build      ->  成功，13 条路由（含 /api/v1/ai/* 3 条）
-pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
-pnpm bench      ->  4 passed（基准脚本自身断言），约 9.5s；实测数据见 docs/algorithm-benchmarks.md
+pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1，51.4s）
+pnpm bench      ->  5 passed（基准脚本自身断言），约 20s；实测数据见 docs/algorithm-benchmarks.md §9
 ```
 
 构建产物路由：
@@ -148,13 +155,13 @@ pnpm bench      ->  4 passed（基准脚本自身断言），约 9.5s；实测�
 | 多浏览器兼容测试 | 未执行 | E2E 目前只在本机 Chrome 运行（CI 使用 Chromium，尚未在 GitHub 上跑过） |
 | 可访问性自动化检查 | 未执行 | 未引入 axe 等工具 |
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
-| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 265 个用例之一部分） |
+| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 335 个用例之一部分） |
 | AI 接口鉴权与额度 | 未执行 | 项目尚无认证基础设施；接口仅在非生产环境的模拟模式下可用，缺口已记录在 `docs/ai-pipeline.md` §7 |
 | 任务队列持久化 | 未执行 | 内存实现；数据库版依赖 `infra/sql`（未执行） |
 | 支付 / 订阅测试 | 未执行 | 功能尚未实现 |
-| 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 8.2–9.5s，4 个基准场景通过；数据见 `docs/algorithm-benchmarks.md`。**浏览器与移动端未测** |
-| 算法视觉质量比对 | 未执行 | P0 只测速度与内存；固定样本的人工比对需要 P1 算法就位后进行 |
-| 本地算法 vs 浏览器像素一致性 | 未执行 | Node 侧像素结果与浏览器 canvas 的一致性尚未验证 |
+| 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 约 20s，5 个基准场景通过；数据见 `docs/algorithm-benchmarks.md` §9。**浏览器与移动端未测**，且同机波动可达 ±40% |
+| 算法视觉质量比对 | **未执行** | P1 已就位，但仍只测数值正确性与确定性；`makeSeamless` / `resizeRaster` / `rotateRaster` 的视觉评分未做 |
+| 本地算法 vs 浏览器像素一致性 | **未执行** | Node 侧像素结果与浏览器 canvas 的一致性尚未验证（P3 必须补） |
 | 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
 | SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
 
@@ -164,7 +171,9 @@ pnpm bench      ->  4 passed（基准脚本自身断言），约 9.5s；实测�
 >
 > **已定位并修复的「时间依赖测试」**：`packages/ai-core/src/verification.test.ts` 有 3 个用例调用了 `toSummary()` 但未传 `now`，`AiVerificationStore` 默认按**真实时钟**判断 24 小时验证有效期，于是硬编码时间戳在跨过 24 小时窗口后失效（2026-10-19 复现：`expected null to be '2026-10-18T09:00:00.000Z'`）。根因是测试依赖墙钟，而非被测逻辑错误。修复：这些用例显式传入 `now`。**约定：任何与时间有关的断言必须注入固定时间，禁止依赖 `Date.now()`。**
 >
-> **由基准测试定位的「真实性能缺陷」**：`hashRaster` 初版逐字节使用 `BigInt`（FNV-1a 64 位），2048×2048（4.19MP）实测 **2610ms**。修复为两路 32 位 `Math.imul` 混合哈希后降至 **61.8ms**（约 42×），`fixtures.test.ts` 的稳定性与区分度断言保持通过。数据与复现命令见 `docs/algorithm-benchmarks.md`。
+> **由基准测试定位的「真实性能缺陷」（P0）**：`hashRaster` 初版逐字节使用 `BigInt`（FNV-1a 64 位），2048×2048（4.19MP）实测 **2610ms**。修复为两路 32 位 `Math.imul` 混合哈希后降至 **61.8ms**（约 42×），`fixtures.test.ts` 的稳定性与区分度断言保持通过。数据与复现命令见 `docs/algorithm-benchmarks.md`。
+>
+> **由基准测试定位的「真实性能缺陷」（P1）**：图案引擎首版逐像素调用带校验的 `rasterIndex()`，`repeatTile` 1024×1024 实测 **82.5ms**、`buildPattern` 成品 **417ms**。改为整行 `Uint8ClampedArray.set` + 不透明快路径 + 热循环直接索引后降至 **1.3–3.8ms** 与 **91–148ms**（约 22–63× 与 3–4.5×）。同机不同次运行波动可达 ±40%，因此文档只给区间。见 `docs/algorithm-benchmarks.md` §9。
 
 ## 6. 关键不可回归行为清单
 
@@ -200,5 +209,7 @@ pnpm bench      ->  4 passed（基准脚本自身断言），约 9.5s；实测�
 5. 建立导出尺寸一致性测试（容差断言）与有效 DPI 断言
 6. 定位并消除 `pnpm test` 偶发失败（记录失败日志，确认是否与并发度有关）
 7. 在 GitHub CI 上真实执行 E2E 步骤（当前工作流只在 `main` push / PR 触发，需用户授权建 PR 或合并）
+8. P1 图案引擎的浏览器端验证：Node 结果与 Chrome canvas 像素一致性、交互预览延迟实测（P3 前置）
+9. 建立基准测量稳定性方案（预热轮次、CPU 亲和或取多轮最小值）后再考虑 CI 性能阈值
 8. P1/P2：为每个新算法补齐正常/边界/异常/确定性四类测试，并追加固定样本与浏览器侧一致性验证
 9. 把 `pnpm bench` 的关键指标（预览路径耗时、内存峰值）纳入可选回归提醒（先人工对比，不设硬门禁）

@@ -3,3 +3,7 @@ export * from "./operations";
 export * from "./uploads";
 export * from "./print";
 export * from "./export-budget";
+export * from "./errors";
+export * from "./raster";
+export * from "./validate";
+export * from "./pattern";

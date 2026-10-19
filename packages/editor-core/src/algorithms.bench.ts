@@ -11,6 +11,7 @@ import {
   hashRaster
 } from "./fixtures";
 import { decodePng, encodePng } from "./png";
+import { buildPattern, adjustColor, makeSeamless, measureSeams, mirrorTile, repeatTile } from "./pattern";
 import { planExport } from "./export-budget";
 import { buildPreflightReport } from "./print";
 import { createImageLayer, createProject } from "@acs/project-schema";
@@ -295,6 +296,88 @@ describe("local algorithm baseline (P0)", () => {
 
     report();
     expect(valid.length).toBeGreaterThan(0);
+  });
+
+  it("measures the pattern engine preview and final paths", () => {
+    const motifSize = 512;
+    const motif = createRaster(motifSize, motifSize);
+    fillChecker(motif, { cellSize: 64 });
+    const spec = { columns: 4, rows: 4, motifScale: 0.5, rotationDeg: 8, gapX: 6, gapY: 6 };
+
+    measure({
+      name: "buildPattern final 4x4",
+      detail: "512px motif, scale 0.5",
+      iterations: 3,
+      operation: () => {
+        buildPattern(motif, spec, { mode: "final" });
+      }
+    });
+
+    measure({
+      name: "buildPattern preview 4x4",
+      detail: "previewMaxEdge 512",
+      iterations: 5,
+      operation: () => {
+        buildPattern(motif, spec, { mode: "preview", previewMaxEdge: 512 });
+      }
+    });
+
+    measure({
+      name: "buildPattern preview 4x4 small",
+      detail: "previewMaxEdge 256",
+      iterations: 5,
+      operation: () => {
+        buildPattern(motif, spec, { mode: "preview", previewMaxEdge: 256 });
+      }
+    });
+
+    measure({
+      name: "repeatTile 4x4 of 256px",
+      detail: "1024x1024",
+      iterations: 5,
+      operation: () => {
+        repeatTile(motif, { columns: 2, rows: 2 });
+      }
+    });
+
+    measure({
+      name: "mirrorTile 2x2 of 512px",
+      detail: "1024x1024",
+      iterations: 5,
+      operation: () => {
+        mirrorTile(motif, { columns: 2, rows: 2, mode: "both" });
+      }
+    });
+
+    measure({
+      name: "adjustColor 512x512",
+      detail: "saturation + contrast",
+      iterations: 5,
+      operation: () => {
+        adjustColor(motif, { saturation: 20, contrast: 10 });
+      }
+    });
+
+    measure({
+      name: "measureSeams 512x512",
+      detail: "both axes",
+      iterations: 30,
+      operation: () => {
+        measureSeams(motif);
+      }
+    });
+
+    measure({
+      name: "makeSeamless both medium 512x512",
+      detail: "edge mirror blend",
+      iterations: 5,
+      operation: () => {
+        makeSeamless(motif, { axis: "both", blend: "medium" });
+      }
+    });
+
+    report();
+    expect(measurements.length).toBeGreaterThan(0);
   });
 
   it("measures large buffer memory footprint", () => {

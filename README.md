@@ -1,4 +1,4 @@
-﻿# AI 文创设计工坊 (AI Creative Studio)
+# AI 文创设计工坊 (AI Creative Studio)
 
 > 把图案、文字与照片准确放到真实文创产品上，完成设计、预览、保存与导出。
 > 云端优先（Cloud-first）、API 优先（API-first）、零自建服务器。
@@ -28,14 +28,15 @@
 - 项目 JSON：统一的 Schema、版本号与迁移机制；导入 / 导出 / 复制 / 删除
 - 导出前预检：低分辨率、空设计、超出安全区
 - AI 基础管线（**模拟实现，非真实 AI**）：能力/请求/结果/任务/用量/状态合约，Provider 接口与注册表，模拟 Provider（结果一律标注「模拟输出」且成本为 0），任务幂等/重试/超时/限流/并发/取消，用量台账与退款标记，`/api/v1/ai/*` 接口与 `/ai`、`/account` 的真实状态展示
-- 本地算法引擎基础（Algorithm Engine V1 / P0）：确定性测试素材（棋盘格/渐变/噪声/透明边框）、稳定的整幅指纹 `hashRaster`、PNG 编解码（测试用）与可重复运行的性能/内存基准（`pnpm bench`）。**P0 只建立测试与度量基础，尚未提供任何图案算法**
+- 本地算法引擎基础（Algorithm Engine V1 / P0）：确定性测试素材（棋盘格/渐变/噪声/透明边框）、稳定的整幅指纹 `hashRaster`、PNG 编解码（测试用）与可重复运行的性能/内存基准（`pnpm bench`）
+- 本地图案算法（Algorithm Engine V1 / P1，纯算法层，**尚未接入编辑器界面**）：重复/镜像平铺、环形偏移、接缝度量与有限边缘融合（无缝辅助）、图案排列（网格/错位/半落位 + 间距 + 种子化抖动）、图案大小/旋转/间距/偏移、颜色变体（亮度/对比度/饱和度、颜色替换、6 个预设）、等比缩放/旋转/裁切、预览与成品分级（像素预算 + 明确报错）、与分辨率无关的结果指纹。共 70 个自动化用例，设计与公式见 `docs/algorithm-patterns.md`
 
 **明确尚未实现（不会假装实现）**：
 
 - 真实 AI Provider（图像生成、背景移除、场景贴图）与真实调用验证——没有任何适配器，界面不会显示「已验证」
-- 本地图案算法（重复/镜像平铺、无缝纹理、图案排列、密度缩放、颜色变体）与图像处理（裁切、锐化、去噪、透明边缘清理）——均为计划中的 P1/P2，**当前完全不存在**
+- **图案算法还没有界面**：P1 只完成纯算法层与测试，编辑器里暂时看不到这些功能（P3 负责集成）；图像处理（锐化、去噪、透明边缘清理）与有效 DPI 报告属 P2，**当前完全不存在**
 - 3D 产品设计（`mesh.generate` 能力仅声明，请求返回 `NOT_SUPPORTED`）与真实产品贴图（四点透视/网格形变仅有预研计划）
-- 插值放大**不等于**超分辨率；本地算法**不等于** AI 生成，两者在界面与文档中严格区分
+- 插值放大**不等于**超分辨率；本地算法**不等于** AI 生成，两者在界面与文档中严格区分；「无缝辅助」是有限宽度的边缘融合，**不是**任意图片一键无缝
 - 印刷生产文件与供应商规格对接（阶段 6，当前仅有预检与参考导出）
 - 用户认证、云数据库、对象存储、订阅支付（阶段 2 / 7）——当前项目保存在浏览器本地存储，云端 Provider 只有内存假实现
 
@@ -82,19 +83,19 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 
 依赖方向：`apps/web` → `packages/*`；`packages/editor-core` → `packages/project-schema`；`packages/template-library` → `project-schema` + `template-schema`；`packages/cloud-schema` → `project-schema`；`packages/cloud-core` → `cloud-schema` + `project-schema`；`packages/ai-schema` → `project-schema` + `cloud-schema`；`packages/ai-core` → `ai-schema` + `cloud-core`。核心逻辑与 UI 分离，所有操作均可单元测试。
 
-## 验证结果（t0.2.0 + Algorithm Engine V1 P0，实际执行）
+## 验证结果（t0.2.0 + Algorithm Engine V1 P1，实际执行）
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 单元测试 | `pnpm test` | 265 通过 / 0 失败（28 个测试文件） |
+| 单元测试 | `pnpm test` | 335 通过 / 0 失败（35 个测试文件） |
 | 类型检查 | `pnpm typecheck` | 通过（9 个项目） |
 | 静态检查 | `pnpm lint` | 通过，0 错误 0 警告 |
 | 生产构建 | `pnpm build` | 成功，13 条路由（含 3 条 `/api/v1/ai/*`） |
 | 运行时冒烟 | `pnpm start` + HTTP 请求 | 9 条页面路由 + 模板 SVG 均返回 200 |
-| 浏览器 E2E | `pnpm test:e2e` | 14 通过 / 0 失败（桌面 13 + 移动端 1；真实 Chrome，双服务实例） |
-| 算法基准 | `pnpm bench` | 4 个基准场景通过（约 9 秒）；耗时/内存实测见 `docs/algorithm-benchmarks.md` |
+| 浏览器 E2E | `pnpm test:e2e` | 14 通过 / 0 失败（桌面 13 + 移动端 1；真实 Chrome，双服务实例，51.4 秒） |
+| 算法基准 | `pnpm bench` | 5 个基准场景通过（约 20 秒）；耗时/内存实测见 `docs/algorithm-benchmarks.md` §9 |
 
-详细测试范围见 `docs/testing.md`；算法资产与缺口见 `docs/algorithm-inventory.md`；基准数据见 `docs/algorithm-benchmarks.md`；版本审查报告见 `docs/release-review-t0.1.0.md` 与 `docs/release-review-t0.2.0.md`；云端接入步骤见 `docs/cloud-setup.md`；AI 现状（已实现/未实现）见 `docs/ai-pipeline.md`。
+详细测试范围见 `docs/testing.md`；算法资产与缺口见 `docs/algorithm-inventory.md`；P1 图案引擎设计与公式见 `docs/algorithm-patterns.md`；基准数据见 `docs/algorithm-benchmarks.md`；版本审查报告见 `docs/release-review-t0.1.0.md` 与 `docs/release-review-t0.2.0.md`；云端接入步骤见 `docs/cloud-setup.md`；AI 现状（已实现/未实现）见 `docs/ai-pipeline.md`。
 
 ## 重要说明
 
@@ -114,8 +115,9 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 - `docs/api-spec.md` API 契约与错误格式
 - `docs/template-format.md` 模板与坐标系规范
 - `docs/ai-pipeline.md` AI Provider 合约、任务流程、服务状态判定与「已实现/未实现」现状
-- `docs/algorithm-inventory.md` 本地算法资产清单、数据契约、能力边界与测试缺口（P0 审计）
+- `docs/algorithm-inventory.md` 本地算法资产清单、数据契约、能力边界与测试缺口（P0 审计 + P1 更新）
 - `docs/algorithm-benchmarks.md` 本地算法性能/内存基准协议、真实实测数据与结论
+- `docs/algorithm-patterns.md` P1 图案引擎的算法公式、预览/成品分级、确定性与能力边界
 - `docs/print-export.md` 印刷尺寸、DPI、出血与导出规则
 - `docs/security.md` 认证、授权、密钥与隐私策略
 - `docs/testing.md` 测试命令、覆盖范围与真实结果
