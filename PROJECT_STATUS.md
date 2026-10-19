@@ -65,7 +65,7 @@
 | --- | --- |
 | `pnpm -r --filter "./packages/**" test` | 182 通过 / 0 失败 |
 | `pnpm --filter @acs/web test` | 63 通过 / 0 失败 |
-| `pnpm test` | 245 通过 / 0 失败（25 个文件） |
+| `pnpm test` | 245 通过 / 0 失败（26 个文件） |
 | `pnpm typecheck` | 9 个项目全部通过 |
 | `pnpm lint` | 0 错误 0 警告 |
 | `pnpm build` | 成功，生成 13 条路由（新增 3 条 `/api/v1/ai/*`） |
