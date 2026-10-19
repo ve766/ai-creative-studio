@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  API_ERROR_CODES,
+  ERROR_STATUS,
   apiFailure,
   apiSuccess,
   isRetryableErrorCode,
@@ -35,9 +37,13 @@ describe("API envelope", () => {
     expect(statusForErrorCode("RATE_LIMITED")).toBe(429);
     expect(statusForErrorCode("QUOTA_EXCEEDED")).toBe(402);
     expect(statusForErrorCode("NOT_CONFIGURED")).toBe(503);
+    expect(statusForErrorCode("NOT_SUPPORTED")).toBe(400);
+    expect(statusForErrorCode("CONTENT_REJECTED")).toBe(422);
+    expect(statusForErrorCode("CANCELED")).toBe(409);
     expect(statusForErrorCode("UPSTREAM_ERROR")).toBe(502);
     expect(statusForErrorCode("TIMEOUT")).toBe(504);
     expect(statusForErrorCode("INTERNAL")).toBe(500);
+    expect(Object.keys(ERROR_STATUS)).toHaveLength(API_ERROR_CODES.length);
   });
 
   it("marks only transient failures as retryable", () => {
@@ -47,6 +53,9 @@ describe("API envelope", () => {
     expect(isRetryableErrorCode("NOT_CONFIGURED")).toBe(false);
     expect(isRetryableErrorCode("VALIDATION_FAILED")).toBe(false);
     expect(isRetryableErrorCode("FORBIDDEN")).toBe(false);
+    expect(isRetryableErrorCode("NOT_SUPPORTED")).toBe(false);
+    expect(isRetryableErrorCode("CONTENT_REJECTED")).toBe(false);
+    expect(isRetryableErrorCode("CANCELED")).toBe(false);
   });
 
   it("parses a valid failure body and rejects foreign shapes", () => {

@@ -50,6 +50,9 @@
 | `UPSTREAM_ERROR` | 502 | 外部服务返回错误 |
 | `TIMEOUT` | 504 | 外部服务超时 |
 | `INTERNAL` | 500 | 未预期的服务端错误 |
+| `NOT_SUPPORTED` | 400 | 请求的能力或功能尚未实现 |
+| `CONTENT_REJECTED` | 422 | 内容被供应商或本地策略拒绝 |
+| `CANCELED` | 409 | 任务被取消 |
 
 **要求**：未配置外部服务时必须返回 `NOT_CONFIGURED`，不得返回假的成功结果。
 
@@ -112,13 +115,26 @@
 
 ### AI
 
+**已实现（阶段 5，仅模拟 Provider）**：
+
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| GET | `/api/v1/ai/status` | AI 服务状态：`state`（`not-configured` / `simulated` / `unverified` / `verified` / `unavailable`）、`requestedMode`、`providerId`、`simulatedCapabilities`、`problems`（仅变量名）、`verification`、`notice`；响应 `Cache-Control: no-store` |
+| POST | `/api/v1/ai/jobs` | 按能力创建任务：`{ capability, input, projectId?, requestSchemaVersion? }`；成功返回 201，模拟执行时响应头 `x-acs-simulated: true` 且 `notice` 含「不是真实 AI 输出」；支持 `idempotency-key` 头去重 |
+| GET | `/api/v1/ai/jobs/{id}` | 读取任务快照（含状态、结果引用、用量）；非本人任务返回 `NOT_FOUND` |
+
+调用方通过 `x-acs-client-id` 标识归属（默认 `local-anonymous`）。该方法**不是鉴权**，仅用于任务隔离，因此模拟模式只在非生产环境开放。
+
+**计划中（未实现）**：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/v1/ai/jobs/{id}/cancel` | 取消任务（服务层与测试已支持，尚未暴露 HTTP） |
 | POST | `/api/v1/ai/generate-pattern` | 文本生成图案 |
 | POST | `/api/v1/ai/remove-background` | 背景移除 |
 | POST | `/api/v1/ai/scene-mockup` | 实拍场景融合 |
 
-所有 AI 接口：
+所有 AI 接口（设计约定）：
 
 1. 校验用户身份与权限
 2. 校验输入（类型、大小、尺寸）

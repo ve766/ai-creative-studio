@@ -12,6 +12,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@acs/ai-core": "workspace:*",
+    "@acs/ai-schema": "workspace:*",
     "@acs/cloud-core": "workspace:*",
     "@acs/cloud-schema": "workspace:*",
     "@acs/editor-core": "workspace:*",

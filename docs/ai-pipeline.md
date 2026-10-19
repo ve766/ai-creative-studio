@@ -1,131 +1,118 @@
-# AI 管线设计
+# AI 管线与 Provider 规范
 
-> 状态：设计完成，**尚未接入任何 Provider**（阶段 3 实施）。
-> 当前 UI 明确显示「未配置」，不会用示例图片冒充 AI 结果。
+> 状态（t0.2.0 阶段 5）：**已实现合约、模拟 Provider、任务状态机、用量台账与状态接口；未实现任何真实供应商适配器，未发生任何真实 AI 调用，未产生任何费用。**
+> 代码位置：`packages/ai-schema`（合约与校验）、`packages/ai-core`（Provider 接口、运行时保障、模拟实现、任务服务、状态判定）、`apps/web/src/app/api/v1/ai/*`（HTTP 接口）。
 
-## 1. 三种状态（必须严格区分）
+## 1. 服务状态取值（必须严格区分）
 
-| 状态 | 判定 | 表现 |
+| 状态 | 判定条件 | 展示 |
 | --- | --- | --- |
-| 已配置且调用成功 | 环境变量齐全 + 上游返回成功 | 返回真实结果，记录模型、参数、用量 |
-| 未配置 | 缺少必需环境变量或未启用的开关 | 返回 `NOT_CONFIGURED`，UI 显示配置提示 |
-| 开发环境模拟 | `APP_ENV=dev` 且显式开启模拟 | 结果带 `simulated: true` 标记，UI 显式提示「模拟结果」 |
+| `not-configured` | AI 关闭（未设置 `AI_MODE`）或真实凭据不完整；当前也没有任何真实适配器 | 界面「未配置」，接口 `NOT_CONFIGURED` |
+| `simulated` | `AI_MODE=mock` 且非生产环境 | 界面「开发模拟（结果非真实 AI）」+ 显著提示 |
+| `unverified` | 已注册真实 Provider 且配置齐全，但**没有成功的真实调用记录** | 「已配置但未验证」 |
+| `verified` | 有真实调用成功记录（`AiVerificationStore.recordLiveSuccess`）且未过期 | 「真实服务已验证」+ 证据文本 |
+| `unavailable` | 真实调用失败时间晚于最近一次成功验证 | 「暂时不可用」+ 最近失败错误码 |
 
-**禁止**：把模拟结果展示为真实 AI 输出；把生成式结果宣称为具有精确像素保真度的印刷原图。
+硬性规则（由 `AiServiceStatusSchema` 的 refine 强制，测试覆盖）：
 
-## 2. Provider 接口
+1. `verified` 必须带 `verification.verifiedAt`，且 `requestedMode` 必须是 `live`；
+2. 模拟调用**永远不会**写入 `verifiedAt`（只记入 `simulatedEvidence`）；
+3. 验证记录超过 24 小时视为过期，回到 `unverified`；
+4. 环境变量、API 密钥、Provider 类的存在**都不算**验证。
+
+## 2. 能力声明（capability）
+
+能力是唯一的能力描述方式，业务代码只依赖能力，不依赖供应商字段。
+
+| 能力 | 含义 | 当前状态 |
+| --- | --- | --- |
+| `image.generate` | 文本生成图案 | 有模拟实现 |
+| `image.edit` | 局部修改 | 有模拟实现 |
+| `image.remove-background` | 智能抠图 | 有模拟实现 |
+| `image.seamless-tile` | 无缝平铺纹理 | 有模拟实现 |
+| `image.product-scene` | 产品场景贴图 | 有模拟实现 |
+| `mesh.generate` | 3D 模型生成 | **仅声明，无实现**，请求返回 `NOT_SUPPORTED` |
+
+供应商特有参数**不允许**进入请求结构：请求 schema 使用严格模式（`.strict()`），出现未知字段（例如 `style_preset`）直接 `VALIDATION_FAILED`，供应商适配器只负责把通用请求翻译成自己的格式。
+
+请求/结果结构各自带版本号：`AI_REQUEST_SCHEMA_VERSION`、`AI_RESULT_SCHEMA_VERSION`（当前均为 1），请求里可带 `requestSchemaVersion`，版本不匹配返回 `VALIDATION_FAILED`。
+
+## 3. Provider 合约
 
 ```ts
-interface ImageGenerationProvider {
+interface AiProvider {
   readonly id: string;
-  isConfigured(): boolean;
-  generatePattern(input: {
-    prompt: string;
-    size: { width: number; height: number };
-    transparent?: boolean;
-    seed?: number;
-    signal?: AbortSignal;
-  }): Promise<ProviderResult<{ assetRef: AssetRef; model: string; usage: UsageRecord }>>;
+  readonly mode: "live" | "mock";
+  readonly capabilities: readonly AiCapability[];
+  describeConfiguration(): ProviderConfig;      // { mode, missing: string[] }，只含变量名
+  run(request: AiRequest, context: AiRunContext): Promise<AiProviderOutcome>;
 }
 
-interface BackgroundRemovalProvider {
-  readonly id: string;
-  isConfigured(): boolean;
-  removeBackground(input: {
-    assetRef: AssetRef;
-    signal?: AbortSignal;
-  }): Promise<ProviderResult<{ assetRef: AssetRef; model: string; usage: UsageRecord }>>;
-}
-
-interface SceneMockupProvider {
-  readonly id: string;
-  isConfigured(): boolean;
-  renderScene(input: SceneMockupInput): Promise<ProviderResult<{ assetRef: AssetRef; usage: UsageRecord }>>;
+interface AiRunContext {
+  taskId: string;
+  ownerId: string;
+  projectId: string | null;
+  attempt: number;
+  signal: AbortSignal;                          // 超时与取消共用
+  onProgress?: (progress: { stage: string; percent: number }) => void;
 }
 ```
 
-统一结果类型：
-
-```ts
-type ProviderResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: { code: ProviderErrorCode; message: string; retryable: boolean } };
-
-type ProviderErrorCode =
-  | 'NOT_CONFIGURED' | 'INVALID_INPUT' | 'RATE_LIMITED' | 'TIMEOUT'
-  | 'UPSTREAM_ERROR' | 'QUOTA_EXCEEDED' | 'CONTENT_REJECTED' | 'UNKNOWN';
-```
-
-## 3. 每个 Provider 必须实现
-
-1. 明确的输入输出类型
-2. 统一错误格式（上面的 `ProviderResult`）
-3. 超时（默认 60s，可配置）
-4. 有限重试（最多 2 次，仅对可重试错误，指数退避）
-5. 速率限制（按用户与全局）
-6. 用量/费用记录（上游返回 usage 时记录，否则记录估算请求数与时长）
-7. 配置检查（`isConfigured()`）
-8. 可替换实现（业务代码只依赖接口）
-9. 自动化测试（使用注入的假 Provider，不访问网络）
-
-**禁止**：把某个供应商的专有数据格式传播到整个业务系统。更换供应商只需修改配置与适配器。
+- 统一错误：所有失败一律抛 `ProviderError`（`@acs/cloud-core`），错误码取自统一枚举，`retryable` 决定是否重试。
+- 统一任务状态：`queued → running → succeeded | failed | canceled | timed-out`。
+- 统一结果引用：`AiResultAsset` 支持 `inline-data-url`、`storage-key`、`remote-url` 三种，schema 强制校验匹配关系（`storage-key` 不能是外部 URL，`remote-url` 必须是 https）。
+- 供应商适配器只实现 `AiProvider`，注册进 `createAiProviderRegistry`；同一能力优先选 `live`，缺失时按环境决定是否回退 `mock`，生产环境注册表直接隐藏 mock（`NOT_CONFIGURED`）。
 
 ## 4. 任务流程
 
 ```
-1. 客户端调用 POST /api/v1/ai/generate-pattern
-2. 服务端：
-   a. 校验身份与权限
-   b. 校验输入（类型、扩展名、大小、实际内容、尺寸）
-   c. 校验额度预算，写入幂等扣减流水（Idempotency-Key）
-   d. 创建 ai_jobs 记录（status = queued）
-   e. 入队到托管任务服务
-   f. 返回 { jobId }
-3. 任务执行：
-   a. status = processing，更新 progress
-   b. 调用 Provider（带超时与重试）
-   c. 成功：保存结果资源，status = succeeded，写入用量
-   d. 失败：status = failed，写入错误码与脱敏消息，按规则返还额度
-4. 客户端轮询 GET /api/v1/jobs/{id} 获取状态与结果
+1. POST /api/v1/ai/jobs
+   a. 幂等键去重（同 owner + key 直接返回已有任务）
+   b. 限流（令牌桶，按主体）→ 并发上限（默认同一主体 2 个）→ 超限返回 RATE_LIMITED
+   c. 能力是否已实现 → 否则 NOT_SUPPORTED
+   d. 请求 schema 严格校验 → 否则 VALIDATION_FAILED
+   e. 解析 Provider；mock 被禁用时 NOT_CONFIGURED / FORBIDDEN
+   f. 建任务（queued）→ running → 执行（超时 60s，重试 1 次，仅重试可重试错误）
+2. 终态：succeeded（写结果 + 用量）/ failed / canceled（取消）/ timed-out
+3. GET /api/v1/ai/jobs/{id} 读取任务快照；非本人返回 NOT_FOUND
 ```
 
-## 5. 额度规则
+任务记录包含：`taskId`、`capability`、`providerId`、`mode`、`simulated`、`status`、`attempts`、请求/结果 schema 版本、时间戳、结果、模型名、用量、错误、取消标记。对外快照（`AiJobSnapshot`）**不含** `ownerId` 与 `idempotencyKey`。
 
-- 扣减与返还必须**事务安全**且**幂等**：`credit_ledger.idempotency_key` 唯一约束
-- 重复请求（相同幂等键）不得重复扣减
-- 未开始执行即失败（例如 `NOT_CONFIGURED`）→ 不扣减
-- 执行中失败 → 全额返还并记录 `ai.refund` 流水
-- 部分成功（例如生成多张仅返回部分）→ 按实际消耗结算，规则需在开通前确定并文档化
-- 所有额度变动必须可在流水中追踪
+当前 HTTP 层尚未提供取消接口（服务层与测试已支持 `cancel`），真实长任务接入时再补 `POST /api/v1/ai/jobs/{id}/cancel`。
 
-## 6. 限制与保护
+## 5. 用量与成本
 
-| 项目 | 上限（初值，可配置） |
-| --- | --- |
-| 单文件大小 | 20 MB |
-| 单边尺寸 | 12000 px |
-| 总像素 | 4000 万 |
-| 单用户每日 AI 调用 | 待定（配置项） |
-| 全局每日调用 | 待定（配置项） |
-| 单次请求超时 | 60 s |
-| 重试次数 | 2 |
+- 台账 `AiUsageLedger` 以 `taskId` 为唯一键（`recordOnce`），**重试、重复回调都不会产生第二条记录**；失败/取消/超时只记一条并标记 `refunded: true` 与原因。
+- 记录字段：用户、项目、Provider、能力、任务 ID、终态、尝试次数、可获得的用量、**预估成本与实际成本分开存放**、退款/补偿状态、时间。
+- 预估成本 `estimatedCost` 必须带估算依据（`basis`）；实际成本 `actualCost` 必须带来源（`source`），本阶段**没有真实账单**，所有记录都是 `simulated: true`、`actualCost: null`，汇总里用 `costsAreSimulatedOnly` 明确标注。
+- 汇总额度扣减与幂等唯一约束属于数据库层（`infra/sql/0001_init.sql` 的 `credit_ledger.idempotency_key` 唯一约束），**尚未在真实数据库验证**。
 
-异常费用增长保护：每日/每月用量上限 + 告警 + 超限后拒绝新任务（而非静默继续计费）。
+## 6. 限额（当前实现值）
+
+| 项目 | 值 | 位置 |
+| --- | --- | --- |
+| 单边尺寸 | 64–4096 px | `MIN_IMAGE_EDGE` / `MAX_IMAGE_EDGE` |
+| 面积 | ≤ 16,000,000 px | `MAX_IMAGE_PIXELS` |
+| 提示词长度 | ≤ 1000 字符 | `MAX_PROMPT_LENGTH` |
+| 单次任务超时 | 60 s | `DEFAULT_AI_TIMEOUT_MS` |
+| 重试次数 | 2 次尝试（即重试 1 次） | `DEFAULT_AI_RETRY` |
+| 同一主体并发 | 2 | `DEFAULT_MAX_CONCURRENT_PER_OWNER` |
+| 限流 | 10 次 / 分钟（默认，可注入） | `RateLimiter` |
+| 台账保留 | 200 条（内存） | `AiUsageLedger` |
+| 验证记录有效期 | 24 h | `AI_STATUS_VERIFICATION_TTL_MS` |
 
 ## 7. 安全与隐私
 
-- 密钥只存在于服务端环境变量或密钥管理系统
-- 前端通过经过身份验证的服务端接口发起请求，绝不直接携带密钥
-- 接入前评估第三方模型的图片留存与数据使用政策
-- 未经用户明确授权，不将用户设计上传到第三方服务
-- 日志脱敏：不记录密钥、支付敏感数据、不必要的个人内容
-- 对用户上传内容、版权声明与 AI 生成内容设置产品提示
+- 密钥只存在于服务端环境变量；状态接口与错误信息只返回**变量名**，不返回值；错误文本经 `maskSecretsInText` 掩码 `sk-...`。
+- 参数不做任何路径/URL 拼接，结果引用由 schema 约束类型。
+- **已知缺口**：AI 接口目前**没有接入登录、项目所有权与额度校验**（项目尚无认证基础设施），因此 `POST /api/v1/ai/jobs` 仅在非生产环境可用，且只运行模拟 Provider；服务端通过请求头 `x-acs-client-id` 区分调用方来做任务隔离，这只是防串读，不是鉴权。
+- 未配置时接口一律 `NOT_CONFIGURED`，不会返回任何假成功。
 
-## 8. 图案质量检查
+## 8. 尚未实现（不得视为已完成）
 
-- 分辨率检查：按目标 DPI 计算所需像素，低于阈值给出警告/错误
-- 透明边缘检查：检测半透明光晕与硬边
-- 裁切检查：图案是否被安全区裁切
-- 分类与标签（可选，用于素材管理）
-
-**注意**：这些检查与印刷预检（`docs/print-export.md`）共用同一套像素 / DPI 换算，不得出现两套不一致的标准。
+1. 真实供应商适配器（图像生成 / 抠图 / 场景）与真实调用验证；
+2. 数据库持久化的任务队列、用量与额度表（`infra/sql` 已写，未执行）；
+3. HTTP 取消接口、任务进度推送；
+4. 鉴权、项目所有权、额度扣减（依赖阶段 2 的账号体系）；
+5. 输出画质检查（分辨率/透明边缘/安全区）与印刷联动，见 `docs/print-export.md`。

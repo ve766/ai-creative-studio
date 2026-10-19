@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PW_PORT ?? 3100);
+const MOCK_PORT = Number(process.env.PW_MOCK_PORT ?? 3200);
 
 // Local runs reuse the installed Chrome. CI installs the bundled Chromium and
 // sets PW_CHANNEL=chromium.
@@ -39,10 +40,19 @@ export default defineConfig({
       }
     }
   ],
-  webServer: {
-    command: `pnpm exec next start -p ${PORT}`,
-    url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000
-  }
+  webServer: [
+    {
+      command: `pnpm exec next start -p ${PORT}`,
+      url: `http://127.0.0.1:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000
+    },
+    {
+      command: `pnpm exec next start -p ${MOCK_PORT}`,
+      url: `http://127.0.0.1:${MOCK_PORT}/api/v1/ai/status`,
+      env: { AI_MODE: "mock", APP_ENV: "dev" },
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000
+    }
+  ]
 });

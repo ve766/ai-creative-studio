@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 
 export interface FeaturePlanProps {
@@ -7,6 +8,7 @@ export interface FeaturePlanProps {
   statusText: string;
   requirements: string[];
   planned: string[];
+  aside?: ReactNode;
 }
 
 export function FeaturePlan({
@@ -15,7 +17,8 @@ export function FeaturePlan({
   phase,
   statusText,
   requirements,
-  planned
+  planned,
+  aside
 }: FeaturePlanProps) {
   return (
     <AppShell>
@@ -35,6 +38,7 @@ export function FeaturePlan({
         </div>
 
         <div className="grid grid-cards">
+          {aside}
           <section className="card">
             <div className="card-body stack">
               <h2 style={{ fontSize: 16 }}>接入前必须满足</h2>
@@ -62,8 +66,8 @@ export function FeaturePlan({
         </div>
 
         <p className="faint" style={{ marginTop: 24, fontSize: 12.5 }}>
-          本页面为真实的产品路线说明，不代表功能已经可用。在服务密钥配置完成并通过测试之前，
-          系统不会展示模拟的 AI 结果。
+          本页面为真实的产品路线说明，不代表功能已经可用。系统只会在明确标注「模拟」的前提下展示模拟结果，
+          绝不会把模拟输出当作真实 AI 结果。
         </p>
       </div>
     </AppShell>

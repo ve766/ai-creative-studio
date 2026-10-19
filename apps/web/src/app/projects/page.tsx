@@ -3,6 +3,8 @@ import { AppShell } from "@/components/AppShell";
 import { CloudStatusNotice } from "@/components/CloudStatusNotice";
 import { ProjectList } from "@/components/ProjectList";
 
+export const dynamic = "force-dynamic";
+
 export default function ProjectsPage() {
   return (
     <AppShell>

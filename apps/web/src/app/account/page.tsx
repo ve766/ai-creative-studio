@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { AiStatusNotice } from "@/components/AiStatusNotice";
 import { AppShell } from "@/components/AppShell";
 import { CloudStatusNotice } from "@/components/CloudStatusNotice";
+
+export const dynamic = "force-dynamic";
 
 export default function AccountPage() {
   return (
@@ -15,6 +18,7 @@ export default function AccountPage() {
 
         <div className="grid grid-cards">
           <CloudStatusNotice />
+          <AiStatusNotice />
 
           <section className="card">
             <div className="card-body stack">

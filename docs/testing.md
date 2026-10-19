@@ -44,24 +44,36 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `apps/web/src/lib/project-repo.test.ts` | 15 | 创建/读取、损坏数据兜底、保存、排序、复制删除、导入导出、非法导入拒绝、配额错误包装、迁移后加载、`FUTURE_VERSION`（未来版本）拒绝且不覆盖原始数据、`listUnreadable`、导入未来版本与非法 JSON 提示 |
 | `apps/web/src/lib/editor-store.test.ts` | 13 | 加载、添加图层与脏标记、撤销重做、删除后选中态、缩放钳制、适应视口居中、选择器、错误上报、连续输入合并为单步撤销、提交后新操作另起一步、普通操作结束合并会话、撤销结束合并会话、合并期间的编辑清空重做栈 |
 | `apps/web/src/lib/cloud/config.test.ts` | 12 | 默认 local、未知模式回落 local、大小写不敏感、云端缺配置时**不宣称 cloud** 而是回退 local 并说明缺失变量、配置齐全才是 cloud、可选 Provider 缺失单独列出、空白值视为缺失、mock 在生产环境被禁止、UI 存储模式映射、对外状态不泄露内部缺失清单 |
+| `packages/ai-schema/src/capabilities.test.ts` | 8 | 能力标签完整、已实现/计划能力不重叠、合法请求与默认值、空/超长提示词拒绝、超尺寸与超像素拒绝、**供应商特有字段被拒绝**、缺少必需字段的能力请求拒绝、能力描述函数穷尽 |
+| `packages/ai-schema/src/jobs.test.ts` | 10 | 终态判定、内联/存储/远程结果引用的类型约束与错配拒绝、预估与实际成本分离、**实际成本必须带来源**、退款状态、任务记录校验、对外快照不含 ownerId/idempotencyKey、未知请求字段拒绝、非法状态值拒绝 |
+| `packages/ai-schema/src/status.test.ts` | 7 | 状态中文标签、未配置状态、**verified 必须有验证记录**、**mock 模式不能报 verified**、有证据才可 verified、simulated 必须声明模拟能力、unverified/unavailable 状态 |
+| `packages/ai-core/src/mock-provider.test.ts` | 9 | 自报为 mock、结果与用量带模拟标记、占位图含「模拟/SIMULATED」、同请求确定性、未声明能力拒绝、内容拦截、注入故障后可成功、取消即停止、进度阶段标记 |
+| `packages/ai-core/src/registry.test.ts` | 6 | 优先解析 live、回退 mock、无实现时 NOT_SUPPORTED、禁用 mock 时隐藏并 NOT_CONFIGURED、重复 id 拒绝、描述不含凭据 |
+| `packages/ai-core/src/ledger.test.ts` | 5 | 同任务只记一次（重试安全）、取消退款标记、预估/实际成本分离与模拟标记、模拟任务不编造实际成本、查找与保留上限 |
+| `packages/ai-core/src/verification.test.ts` | 5 | 仅真实调用写入验证、模拟调用永不 verified、失败不清除历史验证、验证过期视为未验证、未知 Provider 空摘要 |
+| `packages/ai-core/src/jobs.test.ts` | 17 | 模拟任务成功并只记一条用量、幂等键复用不重复执行、**重试成功仍只记一条用量**、重试耗尽失败并退款、超时标记 timed-out、取消标记 canceled、越权取消拒绝、非法输入不调用 Provider、未实现能力 NOT_SUPPORTED、只读模拟实现时 NOT_CONFIGURED、禁用模拟时 FORBIDDEN、并发上限拦截、限流先于建任务、快照不含内部字段、供应商错误码透传、历史上限、未知任务 id |
+| `packages/ai-core/src/status.test.ts` | 8 | 关闭时列出缺失变量名、模拟模式列出被模拟能力、**生产环境拒绝模拟**、**仅配置凭据不得报 verified**、有真实成功记录才 verified、较新的失败转为 unavailable、真实 Provider 凭据不全时列出缺失名、模拟成功不算验证 |
+| `apps/web/src/lib/ai/config.test.ts` | 12 | 默认 off 且只给出缺失变量名、未知模式按 off 处理、非生产允许 mock/生产拒绝、**不存在真实适配器时不谎称已实现**、凭据组只按标签列出、live 缺失变量全量列出、错误文本掩码 `sk-...`、三种模式下状态一致、**配置齐全也不得报 verified**、状态不泄露凭据值 |
+| `apps/web/src/lib/ai/routes.test.ts` | 11 | 状态接口 no-store + requestId、mock 模式报 simulated、生产拒绝模拟、**配置凭据不等于 verified**、AI 关闭时创建任务 503、生产创建任务 403、live 模式 503、模拟任务成功且响应带模拟标记与提示、幂等键去重、非法载荷 422 且不建任务、任务读取仅限本人 |
 
-合计：**144 个用例，15 个测试文件**。
+合计：**245 个用例，25 个测试文件**。
 
-## 4. 实际执行结果（t0.2.0，2026-10-18）
+## 4. 实际执行结果（t0.2.0，2026-10-19）
 
 ```
-pnpm test       ->  144 passed / 0 failed
-pnpm typecheck  ->  7 个项目全部通过
+pnpm test       ->  245 passed / 0 failed
+pnpm typecheck  ->  9 个项目全部通过
 pnpm lint       ->  0 errors / 0 warnings
-pnpm build      ->  成功，11 条路由（含 /api/v1/status）
-pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
+pnpm build      ->  成功，13 条路由（含 /api/v1/ai/* 3 条）
+pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1）
 ```
 
 构建产物路由：
 
 ```
-/  /_not-found  /account  /ai  /editor/[projectId]  /pricing
-/projects  /scene  /studio-3d  /templates
+/  /account  /ai  /editor/[projectId]  /pricing  /projects  /scene
+/studio-3d  /templates  /api/v1/status  /api/v1/ai/status
+/api/v1/ai/jobs  /api/v1/ai/jobs/[jobId]
 ```
 
 运行时冒烟（`pnpm start` 后发起 HTTP 请求，2026-10-18 复测）：
@@ -82,6 +94,7 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 ## 4.1 浏览器 E2E（Playwright）
 
 - 配置：`apps/web/playwright.config.ts`，端口 3100，`webServer` 使用生产构建（`next start`）
+- 第二个服务实例运行在端口 3200，并注入 `AI_MODE=mock`、`APP_ENV=dev`，用于通过**真实 HTTP** 验证模拟 AI 流程与生产环境拒绝逻辑
 - 默认使用本机 Chrome（`channel: "chrome"`）；CI 使用 `PW_CHANNEL=chromium` 并先执行 `playwright install --with-deps chromium`
 - 项目划分：`desktop` 匹配 `*.desktop.spec.ts`，`mobile` 匹配 `*.mobile.spec.ts`（Pixel 7 视口）
 - 辅助模块：`apps/web/e2e/helpers.ts`（模板建项目、上传、拖动、数值填写、透视/尺寸推算、localStorage 轮询、PNG 解码与像素统计）
@@ -99,6 +112,12 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 | 项目 JSON 往返（desktop） | 导出 JSON（`schemaVersion=1`、宽 600）→ 在项目页重新导入 → 提示「已导入项目」、项目数 +1、落库几何一致 |
 | 非法输入拒绝（desktop） | 非项目 JSON 导入：提示错误且不跳转；损坏 PNG：提示「解码失败」且不产生图层 |
 | 移动端工作区（mobile） | 进入编辑器自动适应窗口（缩放 < 100%）、底部面板可开关、可上传图案 |
+| AI 状态展示（desktop） | `/ai` 页状态卡片 `data-state="not-configured"`、显示「未配置」与「尚无真实调用验证记录」、不出现模拟输出与「已验证」 |
+| AI 状态接口（desktop） | `GET /api/v1/ai/status` 返回 200 + `no-store` + `requestId`，状态 `not-configured`、`providerId=null`、`simulatedCapabilities=[]`、无 `verifiedAt`，响应不含 `sk-` |
+| AI 未启用拒绝（desktop） | `POST /api/v1/ai/jobs`（默认服务）返回 503 `NOT_CONFIGURED` |
+| AI 非法参数（desktop） | 携带未知字段的请求返回 422 `VALIDATION_FAILED` 且带 details |
+| AI 模拟流程（desktop，3200 端口） | 状态为 `simulated`；创建任务返回 201、`x-acs-simulated: true`、`notice` 含「不是真实 AI 输出」、`mode=mock`、结果为 `data:image/svg+xml`、`usage.actualCost=null`、`estimatedCost.minorUnits=0`；按 id 可读回 |
+| AI 幂等与越权（desktop，3200 端口） | 相同 `idempotency-key` 两次返回同一 `taskId`；其他 `x-acs-client-id` 读取他人任务返回 404 |
 
 ## 4.2 云端配置状态（真实 HTTP 验证）
 
@@ -117,12 +136,15 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 
 | 项目 | 状态 | 原因 |
 | --- | --- | --- |
-| 浏览器 E2E（Playwright） | **已编写并执行**（desktop 6 + mobile 1 通过） | 见 §4.1；仅覆盖已列出的路径 |
+| 浏览器 E2E（Playwright） | **已编写并执行**（desktop 13 + mobile 1 通过） | 见 §4.1；仅覆盖已列出的路径 |
 | 移动端真机测试 | 未执行 | 无设备环境；E2E 只模拟视口与触摸相关布局 |
 | 多浏览器兼容测试 | 未执行 | E2E 目前只在本机 Chrome 运行（CI 使用 Chromium，尚未在 GitHub 上跑过） |
 | 可访问性自动化检查 | 未执行 | 未引入 axe 等工具 |
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
-| AI / 权限 / 支付测试 | 未执行 | 功能尚未实现（应使用可注入的假 Provider） |
+| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的 245 个用例覆盖 |
+| AI 接口鉴权与额度 | 未执行 | 项目尚无认证基础设施；接口仅在非生产环境的模拟模式下可用，缺口已记录在 `docs/ai-pipeline.md` §7 |
+| 任务队列持久化 | 未执行 | 内存实现；数据库版依赖 `infra/sql`（未执行） |
+| 支付 / 订阅测试 | 未执行 | 功能尚未实现 |
 | 性能基准（大画布、多图层） | 未执行 | 未建立基准 |
 | 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
 | SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
@@ -144,6 +166,10 @@ pnpm test:e2e   ->  7 passed / 0 failed（desktop 6 + mobile 1）
 - 模板 ID 唯一与项目锁定模板版本
 - 上传校验（类型、大小、扩展名、尺寸）与损坏文件拒绝
 - 印刷换算与低分辨率预检
+- 云端状态三态（未配置绝不显示为 cloud；mock 在生产被拒绝）
+- AI 服务状态：仅配置凭据不得报 verified；模拟成功不得写入验证记录；模拟调用不得产生实际成本
+- AI 任务可靠性：幂等键去重、重试不产生重复用量、终态只记一条台账、取消与超时正确归类
+- AI 输入校验：供应商特有字段与未知字段一律拒绝，未实现能力返回 NOT_SUPPORTED
 
 ## 7. 本地存储与测试隔离
 
