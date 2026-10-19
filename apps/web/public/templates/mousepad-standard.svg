@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60" role="img" aria-label="鼠标垫模板预览">
-  <rect width="160" height="60" fill="#f1f5f9"/>
-  <rect x="10" y="10" width="140" height="40" rx="6" fill="#dbe2ea" stroke="#94a3b8" stroke-width="2.5"/>
-  <rect x="22" y="18" width="116" height="24" rx="3" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <rect width="160" height="60" fill="#f0ece1"/>
+  <rect x="10" y="10" width="140" height="40" rx="6" fill="#e3ded2" stroke="#a39d8f" stroke-width="2.5"/>
+  <rect x="22" y="18" width="116" height="24" rx="3" fill="none" stroke="#0f6b5c" stroke-width="2.5" stroke-dasharray="6 4"/>
 </svg>

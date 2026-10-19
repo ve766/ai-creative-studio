@@ -11,6 +11,13 @@ import { LIMITS } from "@/lib/app-config";
 import { useEditorStore, selectCanRedo, selectCanUndo, selectSelectedLayer } from "@/lib/editor-store";
 import { downloadDataUrl, downloadText, renderProjectToDataUrl, safeFilename } from "@/lib/export";
 import { ImageProcessingError, prepareImageFile } from "@/lib/image";
+import {
+  applyImageOperation,
+  createBrowserCodec,
+  describeLayerOutput,
+  type ImageOperationRequest,
+  type RasterCodec
+} from "@/lib/image-ops";
 import { getProjectRepository, type ProjectLoadFailureReason } from "@/lib/project-repo";
 import { LayerPanel } from "./LayerPanel";
 import { PropertyPanel } from "./PropertyPanel";
@@ -66,11 +73,14 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
   const [panMode, setPanMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const codecRef = useRef<RasterCodec | null>(null);
   const savedRef = useRef<string | null>(null);
   const fittedRef = useRef(false);
 
@@ -163,6 +173,41 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
     });
   }, [project, template]);
 
+  const dpiIssues = useMemo(() => {
+    if (!project || !selectedLayer || selectedLayer.type !== "image") return [];
+    return describeLayerOutput(project, selectedLayer);
+  }, [project, selectedLayer]);
+
+  const handleProcessImage = useCallback(
+    async (request: ImageOperationRequest) => {
+      const current = useEditorStore.getState().project;
+      const id = useEditorStore.getState().selectedLayerId;
+      if (!current || !id || processing) return;
+      const layer = current.layers.find((item) => item.id === id);
+      if (!layer || layer.type !== "image") return;
+      setLocalError(null);
+      setLocalNotice(null);
+      setProcessing(true);
+      try {
+        if (!codecRef.current) codecRef.current = createBrowserCodec();
+        const result = await applyImageOperation(layer, request, codecRef.current);
+        if (!result.ok) {
+          setLocalError(result.message);
+          return;
+        }
+        addLayer(result.layer);
+        setLocalNotice(
+          `已生成新图层「${result.layer.name}」：${result.steps.join(" + ")}${result.notes.length > 0 ? `。${result.notes.join(" ")}` : ""}`
+        );
+      } catch (processingError) {
+        setLocalError(processingError instanceof Error ? processingError.message : "图像处理失败");
+      } finally {
+        setProcessing(false);
+      }
+    },
+    [addLayer, processing]
+  );
+
   const handleFiles = useCallback(
     async (file: File) => {
       if (!project) return;
@@ -215,7 +260,7 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
       y: project.canvas.height * 0.42,
       width: project.canvas.width * 0.76,
       fontSize: Math.max(24, Math.round(project.canvas.width * 0.07)),
-      fill: "#14181f"
+      fill: "#1b2722"
     });
     addLayer(layer);
     setLeftOpen(false);
@@ -474,6 +519,20 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
         </div>
       ) : null}
 
+      {localNotice ? (
+        <div className="notice notice-info" style={{ margin: "8px 12px 0" }}>
+          {localNotice}
+          <button
+            type="button"
+            className="icon-btn"
+            style={{ float: "right" }}
+            onClick={() => setLocalNotice(null)}
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
+
       <div className="editor-body">
         <aside className="editor-side" data-open={leftOpen}>
           <div className="panel-section">
@@ -554,7 +613,9 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
             template={template}
             layer={selectedLayer}
             preflight={preflight}
+            dpiIssues={dpiIssues}
             busy={busy}
+            processing={processing}
             onRename={renameProject}
             onUpdateLayer={(patch) => {
               if (!selectedLayer) return;
@@ -567,6 +628,7 @@ export function EditorWorkspace({ projectId }: { projectId: string }) {
             onCommitLayerHistory={commitHistory}
             onCenter={() => selectedLayer && centerLayer(selectedLayer.id)}
             onFit={() => selectedLayer && fitLayerToCanvas(selectedLayer.id)}
+            onProcessImage={(request) => void handleProcessImage(request)}
             onExport={(mode) => void handleExport(mode)}
             onExportJson={handleExportJson}
           />

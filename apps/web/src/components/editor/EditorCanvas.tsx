@@ -307,7 +307,7 @@ export default function EditorCanvas(props: EditorCanvasProps) {
 
   const guides = template
     ? [
-        { rect: template.editableArea, color: "#6366f1", dash: [8, 6] },
+        { rect: template.editableArea, color: "#0f6b5c", dash: [8, 6] },
         ...(template.safeArea
           ? [
               {
@@ -317,7 +317,7 @@ export default function EditorCanvas(props: EditorCanvasProps) {
                   width: project.canvas.width - template.safeArea.left - template.safeArea.right,
                   height: project.canvas.height - template.safeArea.top - template.safeArea.bottom
                 },
-                color: "#0ea5e9",
+                color: "#a5823a",
                 dash: [4, 4]
               }
             ]
@@ -331,7 +331,7 @@ export default function EditorCanvas(props: EditorCanvasProps) {
                   width: project.canvas.width - template.bleed.left - template.bleed.right,
                   height: project.canvas.height - template.bleed.top - template.bleed.bottom
                 },
-                color: "#f97316",
+                color: "#c05a45",
                 dash: [2, 4]
               }
             ]
@@ -371,7 +371,7 @@ export default function EditorCanvas(props: EditorCanvasProps) {
             width={project.canvas.width}
             height={project.canvas.height}
             fill={project.canvas.backgroundColor}
-            shadowColor="rgba(15,23,42,0.28)"
+            shadowColor="rgba(27,39,34,0.26)"
             shadowBlur={18}
             shadowOffsetY={6}
             listening={false}
@@ -427,8 +427,8 @@ export default function EditorCanvas(props: EditorCanvasProps) {
                   ]
             }
             anchorSize={9}
-            anchorStroke="#4f46e5"
-            borderStroke="#4f46e5"
+            anchorStroke="#0f6b5c"
+            borderStroke="#0f6b5c"
             boundBoxFunc={(oldBox, newBox) =>
               newBox.width < 8 || newBox.height < 8 ? oldBox : newBox
             }

@@ -67,26 +67,35 @@ function measureOrientation(width: number, height: number): OutputInfo["orientat
   return width > height ? "landscape" : "portrait";
 }
 
-export function inspectOutput(image: RasterImage, spec: OutputSpec): OutputInfo {
-  wrapRaster(image);
+export function inspectDimensions(size: ImageSize, spec: OutputSpec): OutputInfo {
   const normalized: NormalizedOutputSpec = normalizeOutputSpec(spec);
-  const ratio = image.height / image.width;
+  const ratio = size.height / size.width;
   const targetHeightMm = normalized.heightMm ?? normalized.widthMm * ratio;
   return {
-    widthPx: image.width,
-    heightPx: image.height,
-    megapixels: (image.width * image.height) / 1_000_000,
-    aspectRatio: image.width / image.height,
-    aspectLabel: describeAspect(image.width, image.height),
-    orientation: measureOrientation(image.width, image.height),
+    widthPx: size.width,
+    heightPx: size.height,
+    megapixels: (size.width * size.height) / 1_000_000,
+    aspectRatio: size.width / size.height,
+    aspectLabel: describeAspect(size.width, size.height),
+    orientation: measureOrientation(size.width, size.height),
     targetWidthMm: normalized.widthMm,
     targetHeightMm: normalized.heightMm,
     targetDpi: normalized.dpi,
-    effectiveDpi: image.width / (normalized.widthMm / MM_PER_INCH),
+    effectiveDpi: size.width / (normalized.widthMm / MM_PER_INCH),
     requiredWidthPx: requiredPixelsForPrint(normalized.widthMm, normalized.dpi),
     requiredHeightPx: requiredPixelsForPrint(targetHeightMm, normalized.dpi),
-    meetsTargetDpi: image.width / (normalized.widthMm / MM_PER_INCH) >= normalized.dpi
+    meetsTargetDpi: size.width / (normalized.widthMm / MM_PER_INCH) >= normalized.dpi
   };
+}
+
+export function inspectOutput(image: RasterImage, spec: OutputSpec): OutputInfo {
+  wrapRaster(image);
+  return inspectDimensions({ width: image.width, height: image.height }, spec);
+}
+
+export interface ImageSize {
+  width: number;
+  height: number;
 }
 
 export interface InspectResult {
@@ -94,8 +103,8 @@ export interface InspectResult {
   issues: PreflightIssue[];
 }
 
-export function buildOutputReport(image: RasterImage, spec: OutputSpec): InspectResult {
-  const info = inspectOutput(image, spec);
+export function buildSizeReport(size: ImageSize, spec: OutputSpec): InspectResult {
+  const info = inspectDimensions(size, spec);
   const normalized = normalizeOutputSpec(spec);
   const issues: PreflightIssue[] = [];
 
@@ -129,4 +138,9 @@ export function buildOutputReport(image: RasterImage, spec: OutputSpec): Inspect
   }
 
   return { info, issues };
+}
+
+export function buildOutputReport(image: RasterImage, spec: OutputSpec): InspectResult {
+  wrapRaster(image);
+  return buildSizeReport({ width: image.width, height: image.height }, spec);
 }

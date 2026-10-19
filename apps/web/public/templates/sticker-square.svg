@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="贴纸模板预览">
-  <rect width="100" height="100" fill="#f1f5f9"/>
-  <rect x="18" y="18" width="64" height="64" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-width="2.5"/>
-  <rect x="22" y="22" width="56" height="56" rx="9" fill="none" stroke="#f97316" stroke-width="2" stroke-dasharray="4 3"/>
-  <rect x="30" y="30" width="40" height="40" rx="4" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <rect width="100" height="100" fill="#f0ece1"/>
+  <rect x="18" y="18" width="64" height="64" rx="12" fill="#ffffff" stroke="#a39d8f" stroke-width="2.5"/>
+  <rect x="22" y="22" width="56" height="56" rx="9" fill="none" stroke="#c05a45" stroke-width="2" stroke-dasharray="4 3"/>
+  <rect x="30" y="30" width="40" height="40" rx="4" fill="none" stroke="#0f6b5c" stroke-width="2.5" stroke-dasharray="6 4"/>
 </svg>

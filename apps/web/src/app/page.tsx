@@ -36,8 +36,8 @@ export default function HomePage() {
     <AppShell>
       <div className="container">
         <section className="hero">
-          <span className="badge badge-info">v{APP_VERSION} · 云端优先架构</span>
-          <h1 style={{ marginTop: 16 }}>
+          <span className="eyebrow">AI Creative Studio · 文创设计工作台</span>
+          <h1>
             把设计准确放到
             <br />
             真实文创产品上
@@ -46,6 +46,9 @@ export default function HomePage() {
             上传图片或添加文字，在标准产品模板上完成排版、预览与导出。项目数据以统一 JSON
             结构保存，可随时重新打开继续编辑。
           </p>
+          <div className="row" style={{ justifyContent: "center", marginTop: 18 }}>
+            <span className="badge badge-info">v{APP_VERSION} · 云端优先架构</span>
+          </div>
           <div className="hero-actions">
             <Link href="/templates" className="btn btn-primary">
               选择产品模板开始设计
@@ -99,7 +102,7 @@ export default function HomePage() {
               查看全部
             </Link>
           </div>
-          <TemplateGallery showFilter={false} limit={6} />
+          <TemplateGallery showFilter={false} limit={5} />
         </section>
 
         <section style={{ marginBottom: 40 }}>

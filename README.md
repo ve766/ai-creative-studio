@@ -84,19 +84,19 @@ docs/                  产品、架构、数据库、API、模板、AI、印刷�
 
 依赖方向：`apps/web` → `packages/*`；`packages/editor-core` → `packages/project-schema`；`packages/template-library` → `project-schema` + `template-schema`；`packages/cloud-schema` → `project-schema`；`packages/cloud-core` → `cloud-schema` + `project-schema`；`packages/ai-schema` → `project-schema` + `cloud-schema`；`packages/ai-core` → `ai-schema` + `cloud-core`。核心逻辑与 UI 分离，所有操作均可单元测试。
 
-## 验证结果（t0.2.0 + Algorithm Engine V1 P2，实际执行）
+## 验证结果（t0.2.0 + Algorithm Engine V1 P3，实际执行）
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 单元测试 | `pnpm test` | 388 通过 / 0 失败（39 个测试文件） |
+| 单元测试 | `pnpm test` | 410 通过 / 0 失败（40 个测试文件） |
 | 类型检查 | `pnpm typecheck` | 通过（9 个项目） |
 | 静态检查 | `pnpm lint` | 通过，0 错误 0 警告 |
 | 生产构建 | `pnpm build` | 成功，13 条路由（含 3 条 `/api/v1/ai/*`） |
 | 运行时冒烟 | `pnpm start` + HTTP 请求 | 9 条页面路由 + 模板 SVG 均返回 200 |
-| 浏览器 E2E | `pnpm test:e2e` | 14 通过 / 0 失败（桌面 13 + 移动端 1；真实 Chrome，双服务实例，51.4 秒） |
+| 浏览器 E2E | `pnpm test:e2e` | 15 通过 / 0 失败（桌面 14 + 移动端 1；真实 Chrome，双服务实例，59.1 秒） |
 | 算法基准 | `pnpm bench` | 6 个基准场景通过（约 30 秒）；耗时/内存实测见 `docs/algorithm-benchmarks.md` §9、§10 |
 
-详细测试范围见 `docs/testing.md`；算法资产与缺口见 `docs/algorithm-inventory.md`；P1 图案引擎设计与公式见 `docs/algorithm-patterns.md`；基准数据见 `docs/algorithm-benchmarks.md`；版本审查报告见 `docs/release-review-t0.1.0.md` 与 `docs/release-review-t0.2.0.md`；云端接入步骤见 `docs/cloud-setup.md`；AI 现状（已实现/未实现）见 `docs/ai-pipeline.md`。
+详细测试范围见 `docs/testing.md`；算法资产与缺口见 `docs/algorithm-inventory.md`；P1 图案引擎设计与公式见 `docs/algorithm-patterns.md`；P2/P3 图像处理算法与编辑器集成见 `docs/algorithm-image.md`；基准数据见 `docs/algorithm-benchmarks.md`；版本审查报告见 `docs/release-review-t0.1.0.md` 与 `docs/release-review-t0.2.0.md`；云端接入步骤见 `docs/cloud-setup.md`；AI 现状（已实现/未实现）见 `docs/ai-pipeline.md`。
 
 ## 重要说明
 

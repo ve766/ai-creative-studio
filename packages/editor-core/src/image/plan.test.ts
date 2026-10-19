@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRaster, getPixel, hashRaster, setPixel } from "../raster";
-import { buildOutputReport, describeAspect, inspectOutput, simplifyAspect } from "./inspect";
+import { buildOutputReport, buildSizeReport, describeAspect, inspectDimensions, inspectOutput, simplifyAspect } from "./inspect";
 import { cropImage, cropImageClamped, resizeImage } from "./ops";
 
 function expectCode(operation: () => unknown, code: string): void {
@@ -147,5 +147,32 @@ describe("buildOutputReport", () => {
     });
     expect(result.issues).toEqual([]);
     expect(result.info.meetsTargetDpi).toBe(true);
+  });
+});
+
+describe("inspectDimensions / buildSizeReport", () => {
+  it("只凭尺寸计算分辨率信息，无需像素数据", () => {
+    const info = inspectDimensions({ width: 3000, height: 1500 }, { widthMm: 254, dpi: 300 });
+    expect(info.effectiveDpi).toBeCloseTo(300, 6);
+    expect(info.aspectLabel).toBe("2:1");
+    expect(info.requiredWidthPx).toBe(3000);
+    expect(info.meetsTargetDpi).toBe(true);
+  });
+
+  it("与 buildOutputReport 对同一尺寸给出一致的问题", () => {
+    const spec = { widthMm: 254, dpi: 300, minimumDpi: 150 };
+    const bySize = buildSizeReport({ width: 1000, height: 1000 }, spec);
+    const byImage = buildOutputReport(paint(1000, 1000), spec);
+    expect(bySize.issues).toEqual(byImage.issues);
+  });
+
+  it("尺寸不匹配时给出比例提示", () => {
+    const result = buildSizeReport({ width: 600, height: 600 }, {
+      widthMm: 100,
+      heightMm: 200,
+      dpi: 100,
+      minimumDpi: 1
+    });
+    expect(result.issues.some((issue) => issue.code === "ASPECT_MISMATCH")).toBe(true);
   });
 });

@@ -61,6 +61,7 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/ai-core/src/status.test.ts` | 8 | 关闭时列出缺失变量名、模拟模式列出被模拟能力、**生产环境拒绝模拟**、**仅配置凭据不得报 verified**、有真实成功记录才 verified、较新的失败转为 unavailable、真实 Provider 凭据不全时列出缺失名、模拟成功不算验证 |
 | `apps/web/src/lib/ai/config.test.ts` | 12 | 默认 off 且只给出缺失变量名、未知模式按 off 处理、非生产允许 mock/生产拒绝、**不存在真实适配器时不谎称已实现**、凭据组只按标签列出、live 缺失变量全量列出、错误文本掩码 `sk-...`、三种模式下状态一致、**配置齐全也不得报 verified**、状态不泄露凭据值 |
 | `apps/web/src/lib/ai/routes.test.ts` | 11 | 状态接口 no-store + requestId、mock 模式报 simulated、生产拒绝模拟、**配置凭据不等于 verified**、AI 关闭时创建任务 503、生产创建任务 403、live 模式 503、模拟任务成功且响应带模拟标记与提示、幂等键去重、非法载荷 422 且不建任务、任务读取仅限本人 |
+| `apps/web/src/lib/image-ops.test.ts` | 19 | P3 编辑器集成：处理顺序（去边→裁切→缩放→调整→清边）、裁切原点累加、越界钳制、放大与封顶提示、透明度/颜色像素结果、毛边计数、结果几何换算（缩放系数与原点平移）、生成新图层不改原图层且 id 唯一、无操作返回提示、解码/编码与非法参数错误路径、DPI 问题透传 |
 | `packages/editor-core/src/pattern/params.test.ts` | 6 | 默认值、范围与上限拒绝、NaN/Infinity/非整数拒绝、未知枚举拒绝、预算归一化、参数归一化不改变输入 |
 | `packages/editor-core/src/pattern/geometry.test.ts` | 10 | 2×2→1×1 精确面积平均（139）、常量图放大不变、90° 旋转逐像素、`expand` 外接矩形、恒等缩放返回副本、裁切越界拒绝、非整数裁切拒绝 |
 | `packages/editor-core/src/pattern/tile.test.ts` | 10 | 1×1 恒等、平铺尺寸与像素、四向镜像规则（奇列/奇行翻转）、`offsetWrap` 负偏移归一化、像素上限拒绝、非法模式拒绝 |
@@ -72,18 +73,18 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/editor-core/src/image/params.test.ts` | 15 | 裁切越界/非整数拒绝、收缩语义、三种缩放模式的尺寸与 `capped`/`upscale`/`reason`、透明度/锐化/去噪/Alpha 阈值/输出规格范围与默认值 |
 | `packages/editor-core/src/image/edges.test.ts` | 9 | 四边边距识别、阈值边界（10/16/100）、全透明特例、裁切不修改源图、无需裁切返回原对象、毛边清理计数与阈值拒绝 |
 | `packages/editor-core/src/image/adjust.test.ts` | 14 | 不透明度取整与恒等副本、组合调整结果、锐化恒等/常量不变/亮点增强/半透明解预乘、去噪中值与强度混合、非法参数拒绝 |
-| `packages/editor-core/src/image/plan.test.ts` | 15 | 裁切内容与指纹、同尺寸不重采样、比例识别与约分、有效 DPI/所需像素/方向/百万像素、三类报告问题与「无问题」正例 |
+| `packages/editor-core/src/image/plan.test.ts` | 18 | 裁切内容与指纹、同尺寸不重采样、比例识别与约分、有效 DPI/所需像素/方向/百万像素、三类报告问题与「无问题」正例、**基于尺寸的 DPI 报告（不分配像素，供编辑器只读回显）** |
 
-合计：**388 个用例，39 个测试文件**（P0 算法基础：`fixtures` 13 + `png` 7；P1 图案引擎：`pattern/*` 70；P2 图像处理：`image/*` 53）。
+合计：**410 个用例，40 个测试文件**（P0 算法基础：`fixtures` 13 + `png` 7；P1 图案引擎：`pattern/*` 70；P2 图像处理：`image/*` 53；P3 编辑器集成：`apps/web/src/lib/image-ops.test.ts` 19 与 `plan.test.ts` 新增 3）。
 
-## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P2，2026-10-19）
+## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P3，2026-10-19）
 
 ```
 pnpm lint       ->  0 errors / 0 warnings（exit 0）
 pnpm typecheck  ->  9 个项目全部通过
-pnpm test       ->  388 passed / 0 failed（39 个测试文件）
+pnpm test       ->  410 passed / 0 failed（40 个测试文件）
 pnpm build      ->  成功，13 条路由（含 /api/v1/ai/* 3 条）
-pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1，约 60s）
+pnpm test:e2e   ->  15 passed / 0 failed（desktop 14 + mobile 1，59.1s）
 pnpm bench      ->  6 passed（基准脚本自身断言），约 30s；实测数据见 docs/algorithm-benchmarks.md §9、§10
 ```
 
@@ -130,6 +131,7 @@ pnpm bench      ->  6 passed（基准脚本自身断言），约 30s；实测数
 | 图层顺序与可见性（desktop） | 置顶图层下移后数组顺序变化（`layers[0]` 变为图片）；隐藏图层后落库 `visible:false` |
 | 项目 JSON 往返（desktop） | 导出 JSON（`schemaVersion=1`、宽 600）→ 在项目页重新导入 → 提示「已导入项目」、项目数 +1、落库几何一致 |
 | 非法输入拒绝（desktop） | 非项目 JSON 导入：提示错误且不跳转；损坏 PNG：提示「解码失败」且不产生图层 |
+| 图片处理闭环（desktop） | 裁切 8×8 图案为 4×4 生成**新图层**（画布尺寸按比例换算、位置不变），Ctrl+Z 回到单图层，亮度调整再生成第二个新图层且 `src` 改变 |
 | 移动端工作区（mobile） | 进入编辑器自动适应窗口（缩放 < 100%）、底部面板可开关、可上传图案 |
 | AI 状态展示（desktop） | `/ai` 页状态卡片 `data-state="not-configured"`、显示「未配置」与「尚无真实调用验证记录」、不出现模拟输出与「已验证」 |
 | AI 状态接口（desktop） | `GET /api/v1/ai/status` 返回 200 + `no-store` + `requestId`，状态 `not-configured`、`providerId=null`、`simulatedCapabilities=[]`、无 `verifiedAt`，响应不含 `sk-` |
@@ -155,18 +157,20 @@ pnpm bench      ->  6 passed（基准脚本自身断言），约 30s；实测数
 
 | 项目 | 状态 | 原因 |
 | --- | --- | --- |
-| 浏览器 E2E（Playwright） | **已编写并执行**（desktop 13 + mobile 1 通过） | 见 §4.1；仅覆盖已列出的路径 |
+| 浏览器 E2E（Playwright） | **已编写并执行**（desktop 14 + mobile 1 通过） | 见 §4.1；仅覆盖已列出的路径 |
 | 移动端真机测试 | 未执行 | 无设备环境；E2E 只模拟视口与触摸相关布局 |
 | 多浏览器兼容测试 | 未执行 | E2E 目前只在本机 Chrome 运行（CI 使用 Chromium，尚未在 GitHub 上跑过） |
 | 可访问性自动化检查 | 未执行 | 未引入 axe 等工具 |
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
-| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 388 个用例之一部分） |
+| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 410 个用例之一部分） |
 | AI 接口鉴权与额度 | 未执行 | 项目尚无认证基础设施；接口仅在非生产环境的模拟模式下可用，缺口已记录在 `docs/ai-pipeline.md` §7 |
 | 任务队列持久化 | 未执行 | 内存实现；数据库版依赖 `infra/sql`（未执行） |
 | 支付 / 订阅测试 | 未执行 | 功能尚未实现 |
 | 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 约 30s，6 个基准场景通过；数据见 `docs/algorithm-benchmarks.md` §9、§10。**浏览器与移动端未测**，且同机波动可达 ±40% |
 | 算法视觉质量比对 | **未执行** | P1/P2 已就位，但仍只测数值正确性与确定性；`makeSeamless` / `resizeRaster` / `rotateRaster` / `sharpen` / `denoise` 的视觉评分未做 |
-| 本地算法 vs 浏览器像素一致性 | **未执行** | Node 侧像素结果与浏览器 canvas 的一致性尚未验证（P3 必须补） |
+| 本地算法 vs 浏览器像素一致性 | **未执行** | Node 侧像素结果与浏览器 canvas 的一致性尚未验证；P3 只验证了浏览器端闭环，未与 Node 侧逐像素比对 |
+| 图案引擎 UI 集成 | **未实现** | P1 图案引擎（平铺/镜像/无缝/排布/配色）仅到算法层与单元测试，编辑器尚未提供图案生成入口 |
+| 图像处理覆盖范围 | **仅部分集成** | P3 已接入裁切/缩放/颜色/透明度/去除透明边缘/清理毛边；`sharpen` 与 `denoise` 仍未进入界面；处理为同步执行，无 Worker 与取消 |
 | 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
 | SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
 

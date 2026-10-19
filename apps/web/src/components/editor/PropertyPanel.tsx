@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Layer, LayerPatch, Project } from "@acs/project-schema";
+import type { ImageLayer, Layer, LayerPatch, Project } from "@acs/project-schema";
 import type { ProductTemplate } from "@acs/template-schema";
 import type { PreflightIssue } from "@acs/editor-core";
 import { describePrintExport } from "@/lib/export";
+import type { ImageOperationRequest } from "@/lib/image-ops";
 
 interface NumberInputProps {
   label: string;
@@ -67,15 +68,194 @@ export interface PropertyPanelProps {
   template: ProductTemplate | null;
   layer: Layer | null;
   preflight: PreflightIssue[];
+  dpiIssues: PreflightIssue[];
   busy: boolean;
+  processing: boolean;
   onRename: (name: string) => void;
   onUpdateLayer: (patch: LayerPatch) => void;
   onUpdateLayerTransient: (patch: LayerPatch) => void;
   onCommitLayerHistory: () => void;
   onCenter: () => void;
   onFit: () => void;
+  onProcessImage: (request: ImageOperationRequest) => void;
   onExport: (mode: "preview" | "print") => void;
   onExportJson: () => void;
+}
+
+function ImageToolSection({
+  layer,
+  dpiIssues,
+  processing,
+  onProcessImage
+}: {
+  layer: ImageLayer;
+  dpiIssues: PreflightIssue[];
+  processing: boolean;
+  onProcessImage: (request: ImageOperationRequest) => void;
+}) {
+  const naturalWidth = Math.max(1, Math.round(layer.naturalWidth));
+  const naturalHeight = Math.max(1, Math.round(layer.naturalHeight));
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: naturalWidth, height: naturalHeight });
+  const [maxEdge, setMaxEdge] = useState(naturalWidth);
+  const [adjust, setAdjust] = useState({ brightness: 0, contrast: 0, saturation: 0, opacity: 1 });
+
+  useEffect(() => {
+    setCrop({ x: 0, y: 0, width: naturalWidth, height: naturalHeight });
+    setMaxEdge(naturalWidth);
+  }, [layer.id, naturalWidth, naturalHeight]);
+
+  return (
+    <section className="panel-section">
+      <div className="panel-title">图像处理（生成新图层）</div>
+      <p className="faint" style={{ fontSize: 11.5 }}>
+        原图 {naturalWidth}×{naturalHeight}px。所有处理都会新建一个图层，原始图层保持不变，可用 Ctrl+Z 撤销。
+      </p>
+
+      {dpiIssues.length === 0 ? (
+        <div style={{ marginBottom: 10 }}>
+          <span className="badge badge-success">满足目标 DPI</span>
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 5, marginBottom: 10 }}>
+          {dpiIssues.map((issue, index) => (
+            <div
+              key={`${issue.code}-${index}`}
+              className="muted"
+              style={{ fontSize: 11.5, lineHeight: 1.55, display: "flex", gap: 6 }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  flex: "none",
+                  marginTop: 3,
+                  width: 5,
+                  height: 5,
+                  borderRadius: 999,
+                  background:
+                    issue.level === "error"
+                      ? "var(--danger)"
+                      : issue.level === "warning"
+                        ? "var(--warning)"
+                        : "var(--info)"
+                }}
+              />
+              <span>{issue.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="panel-title" style={{ fontSize: 12.5 }}>
+        裁切（原图像素坐标）
+      </div>
+      <div className="field-grid">
+        <NumberInput label="裁切起点 X" min={0} value={crop.x} onCommit={(x) => setCrop((c) => ({ ...c, x }))} />
+        <NumberInput label="裁切起点 Y" min={0} value={crop.y} onCommit={(y) => setCrop((c) => ({ ...c, y }))} />
+        <NumberInput label="裁切宽" min={1} value={crop.width} onCommit={(width) => setCrop((c) => ({ ...c, width }))} />
+        <NumberInput label="裁切高" min={1} value={crop.height} onCommit={(height) => setCrop((c) => ({ ...c, height }))} />
+      </div>
+      <button
+        type="button"
+        className="btn btn-sm"
+        disabled={processing}
+        onClick={() => onProcessImage({ crop })}
+      >
+        裁切为新图层
+      </button>
+
+      <div className="panel-title" style={{ fontSize: 12.5, marginTop: 12 }}>
+        缩放（限制最长边）
+      </div>
+      <div className="field-grid">
+        <NumberInput label="最长边(px)" min={1} value={maxEdge} onCommit={setMaxEdge} />
+      </div>
+      <button
+        type="button"
+        className="btn btn-sm"
+        disabled={processing}
+        onClick={() => onProcessImage({ resize: { mode: "fit-max-edge", maxEdge } })}
+      >
+        缩放为新图层
+      </button>
+
+      <div className="panel-title" style={{ fontSize: 12.5, marginTop: 12 }}>
+        亮度 / 对比度 / 饱和度 / 透明度
+      </div>
+      <div className="field-grid">
+        <NumberInput
+          label="亮度"
+          min={-100}
+          max={100}
+          value={adjust.brightness}
+          onCommit={(brightness) => setAdjust((a) => ({ ...a, brightness }))}
+        />
+        <NumberInput
+          label="对比度"
+          min={-100}
+          max={100}
+          value={adjust.contrast}
+          onCommit={(contrast) => setAdjust((a) => ({ ...a, contrast }))}
+        />
+        <NumberInput
+          label="饱和度"
+          min={-100}
+          max={100}
+          value={adjust.saturation}
+          onCommit={(saturation) => setAdjust((a) => ({ ...a, saturation }))}
+        />
+        <NumberInput
+          label="调整透明度"
+          min={0}
+          max={1}
+          step={0.05}
+          value={adjust.opacity}
+          onCommit={(opacity) => setAdjust((a) => ({ ...a, opacity }))}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn btn-sm"
+        disabled={processing}
+        onClick={() =>
+          onProcessImage({
+            color: {
+              brightness: adjust.brightness,
+              contrast: adjust.contrast,
+              saturation: adjust.saturation
+            },
+            opacity: adjust.opacity
+          })
+        }
+      >
+        调整为新图层
+      </button>
+
+      <div className="panel-title" style={{ fontSize: 12.5, marginTop: 12 }}>
+        透明区域
+      </div>
+      <div className="row wrap" style={{ gap: 6 }}>
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={processing}
+          onClick={() => onProcessImage({ trimTransparent: {} })}
+        >
+          去除透明边缘
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={processing}
+          onClick={() => onProcessImage({ cleanFringe: {} })}
+        >
+          清理透明毛边
+        </button>
+      </div>
+      <p className="faint" style={{ fontSize: 11.5, marginTop: 8 }}>
+        毛边清理只删除阈值以下的半透明像素，不是 AI 抠图或背景移除。
+      </p>
+    </section>
+  );
 }
 
 export function PropertyPanel(props: PropertyPanelProps) {
@@ -84,13 +264,16 @@ export function PropertyPanel(props: PropertyPanelProps) {
     template,
     layer,
     preflight,
+    dpiIssues,
     busy,
+    processing,
     onRename,
     onUpdateLayer,
     onUpdateLayerTransient,
     onCommitLayerHistory,
     onCenter,
     onFit,
+    onProcessImage,
     onExport,
     onExportJson
   } = props;
@@ -269,6 +452,15 @@ export function PropertyPanel(props: PropertyPanelProps) {
           </>
         )}
       </section>
+
+      {layer && layer.type === "image" ? (
+        <ImageToolSection
+          layer={layer}
+          dpiIssues={dpiIssues}
+          processing={processing}
+          onProcessImage={onProcessImage}
+        />
+      ) : null}
 
       <section className="panel-section">
         <div className="panel-title">导出前预检</div>

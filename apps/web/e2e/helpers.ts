@@ -23,6 +23,7 @@ export interface StoredLayer {
   locked: boolean;
   fontSize?: number;
   text?: string;
+  src?: string;
   naturalWidth?: number;
   naturalHeight?: number;
 }

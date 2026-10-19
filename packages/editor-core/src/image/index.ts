@@ -45,8 +45,8 @@ export type {
 export { applyAdjustments, applyOpacity, denoise, sharpen } from "./adjust";
 export type { AdjustmentsInput } from "./adjust";
 
-export { buildOutputReport, describeAspect, inspectOutput, simplifyAspect } from "./inspect";
-export type { InspectResult, OutputInfo } from "./inspect";
+export { buildOutputReport, buildSizeReport, describeAspect, inspectDimensions, inspectOutput, simplifyAspect } from "./inspect";
+export type { ImageSize, InspectResult, OutputInfo } from "./inspect";
 
 export { cropImage, cropImageClamped, resizeImage } from "./ops";
 export type { CropResult, ResizeResult } from "./ops";

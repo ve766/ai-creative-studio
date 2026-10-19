@@ -1,7 +1,7 @@
-# 本地图像处理算法（Algorithm Engine V1 / P2）
+# 本地图像处理算法（Algorithm Engine V1 / P2 + P3）
 
-> 状态：**已实现并已通过自动化测试**（`packages/editor-core/src/image/`，53 个用例）。
-> 尚未接入编辑器 UI（P3 负责），界面里暂时看不到这些功能。
+> 状态：**P2 已实现并已通过自动化测试**（`packages/editor-core/src/image/`，56 个用例）；**P3 已把其中一部分最小集成进编辑器**（`apps/web/src/lib/image-ops.ts`，19 个用例 + 1 个 E2E 闭环，见 §8）。
+> 集成方式：处理结果以**新增图层**（`data:image/png`）形式落地，不覆盖原图层，可单步撤销；`sharpen` / `denoise` 仍未进入界面。
 > 基准数据见 `docs/algorithm-benchmarks.md` §10。
 
 ## 1. 范围与能力边界
@@ -118,14 +118,14 @@ out.rgb = clamp(sharp.rgb / (out.a / 255))    // 解预乘
 
 `describeAspect` 先匹配常见比例（1:1、5:4、4:3、3:2、7:5、16:9、2:1、3:1、1:√2，容差 1%），否则用 `simplifyAspect` 给出约分后的整数比或三位小数比。
 
-## 5. 测试覆盖（53 个用例）
+## 5. 测试覆盖（56 个用例）
 
 | 文件 | 用例 | 重点 |
 | --- | --- | --- |
 | `params.test.ts` | 15 | 裁切越界/非整数拒绝、收缩语义、三种缩放模式的尺寸与 `capped`/`upscale`/`reason`、全部参数范围与默认值 |
 | `edges.test.ts` | 9 | 四边边距识别、阈值边界（10/16/100）、全透明特例、裁切不修改源图、无需裁切返回原对象、毛边清理计数与阈值拒绝 |
 | `adjust.test.ts` | 14 | 不透明度取整与恒等副本、组合调整结果、锐化恒等/常量不变/亮点增强/半透明解预乘、去噪中值与强度混合、非法参数拒绝 |
-| `plan.test.ts` | 15 | 裁切内容与指纹、同尺寸不重采样、比例识别与约分、有效 DPI/所需像素/方向/百万像素、三类报告问题与「无问题」正例 |
+| `plan.test.ts` | 18 | 裁切内容与指纹、同尺寸不重采样、比例识别与约分、有效 DPI/所需像素/方向/百万像素、三类报告问题与「无问题」正例、基于尺寸的 DPI 报告（不分配像素） |
 
 ## 6. 性能实测（512×512，2026-10-19）
 
@@ -141,10 +141,23 @@ out.rgb = clamp(sharp.rgb / (out.a / 255))    // 解预乘
 - **由基准定位并修复的性能缺陷**：首版 `denoise` 在每个像素上 `slice().sort()` 分配数组，512×512 实测 **896ms**；改为「边界复制 + 复用 9 元素数组 + 插入排序求中值」后降至 **79ms**（约 11×）。
 - 结论：`sharpen` / `denoise` 属于**重操作**（0.26MP 约 0.08s，4MP 预计数秒），必须放在成品阶段异步执行并显示运行状态，不得进入拖拽/预览路径；`applyOpacity`、`analyzeTransparentEdges`、`inspectOutput` 足够轻量，可用于实时反馈。
 
+## 6.1 编辑器集成（P3）
+
+`apps/web/src/lib/image-ops.ts` 是算法层与编辑器之间的**唯一桥接层**，保持纯逻辑（可注入 `RasterCodec`，Node 下可测）。
+
+- `runImageOperation(raster, request)`：按固定顺序执行 **去除透明边缘 → 裁切 → 缩放 → 调整（不透明度/颜色）→ 清理毛边**，返回 `{ raster, steps, notes, originX, originY }`。因为裁切会改变坐标系，`originX/originY` 会累加，供上层换算图层在画布上的新位置。
+- `planResultGeometry(source, { width, height, originX, originY })`：按 `源图缩放系数 = 图层宽 / 原图像素宽` 换算处理后图层的画布位置与尺寸，支持非等比。
+- `applyImageOperation(layer, request, codec)`：解码图层 → 运行算法 → 编码 → 返回 `{ ok: true, layer }` 或 `{ ok: false, message }`。成功时为**新增图层**（名称后缀标明操作，`crop: null`），调用方 `addLayer` 合成单步撤销；**从不修改原图层**。
+- `createBrowserCodec()`：用 `canvas` 解码 `src`、以 `toDataURL("image/png")` 编码；DOM 只在函数体内引用，模块顶层保持可在 Node 加载。
+- `describeLayerOutput(project, layer)`：复用 `buildSizeReport`，**不分配像素**即可给出图层有效 DPI 报告（P3 为此把 `inspect.ts` 拆出 `inspectDimensions` / `buildSizeReport`）。
+
+界面入口：属性面板的「图像处理」区（裁切起点 X/Y、裁切宽/高、最长边、亮度/对比度/饱和度、调整透明度 + 5 个按钮），仅对 `type === "image"` 的图层显示。处理期间按钮禁用并显示 `processing` 状态；算法给出的 `notes`（放大、封顶、未裁切、清除像素数等）与错误以编辑器横幅如实展示。
+
 ## 7. 已知限制与后续
 
-1. 裁切/缩放目前是**纯函数**，尚无「原始素材 + 参数」的非破坏性存储；需 P3 写入项目数据并接入撤销/重做。
-2. 去噪仅中值滤波，未做边缘保持（如双边滤波）；锐化未做半径自适应。
-3. 有效 DPI 报告按**宽度**计算，高度仅在同比例时随宽度推导；非等比输出需 P3 补充双向报告。
+1. **无「原始素材 + 参数」的非破坏性存储**：P3 虽已接入撤销/重做，但结果被**烘焙**成新图层的 PNG，用户无法回改参数，项目体积也会随处理累积（见 `PROJECT_STATUS.md` 已知问题 29）。
+2. 去噪仅中值滤波，未做边缘保持（如双边滤波）；锐化未做半径自适应，且两者**仍未进入界面**。
+3. 有效 DPI 报告按**宽度**计算，高度仅在同比例时随宽度推导；P3 未补充非等比输出的双向报告。
 4. 未做色域/ICC、色彩配置与半色调，印刷色彩一致性不在本阶段范围。
 5. 跨端一致性（Node 结果 vs 浏览器 Canvas）与浏览器端性能仍未验证。
+6. 全部处理在**主线程同步执行**，无 Web Worker、无进度与取消；大图处理会短暂冻结界面（见 `PROJECT_STATUS.md` 已知问题 30）。

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 145" role="img" aria-label="手机壳模板预览">
-  <rect width="70" height="145" fill="#f1f5f9"/>
-  <rect x="14" y="8" width="42" height="129" rx="9" fill="#dbe2ea" stroke="#94a3b8" stroke-width="2.5"/>
-  <rect x="20" y="16" width="20" height="20" rx="6" fill="#b9c3ce"/>
-  <rect x="21" y="46" width="28" height="76" rx="3" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-dasharray="7 5"/>
+  <rect width="70" height="145" fill="#f0ece1"/>
+  <rect x="14" y="8" width="42" height="129" rx="9" fill="#e3ded2" stroke="#a39d8f" stroke-width="2.5"/>
+  <rect x="20" y="16" width="20" height="20" rx="6" fill="#c7c1b3"/>
+  <rect x="21" y="46" width="28" height="76" rx="3" fill="none" stroke="#0f6b5c" stroke-width="2.5" stroke-dasharray="7 5"/>
 </svg>
