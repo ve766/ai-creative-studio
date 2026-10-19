@@ -69,17 +69,22 @@ pnpm --filter @acs/web test:e2e -- --project=desktop
 | `packages/editor-core/src/pattern/color.test.ts` | 11 | 亮度/对比度/饱和度公式与钳制、灰度化（200/100/50→124）、Alpha 不变、颜色替换容差边界（19 否 / 20 是）、6 个预设唯一且确定性、未知 id 返回原图 |
 | `packages/editor-core/src/pattern/pattern.test.ts` | 12 | 成品尺寸与 `plan`、预览封顶、指纹跨分辨率稳定、源或参数变化导致指纹变化、同种子复现、成品超出预算抛 `TOO_LARGE`、非法参数拒绝、源图不被修改 |
 
-合计：**335 个用例，35 个测试文件**（P0 算法基础：`fixtures` 13 + `png` 7；P1 图案引擎：`pattern/*` 70）。
+| `packages/editor-core/src/image/params.test.ts` | 15 | 裁切越界/非整数拒绝、收缩语义、三种缩放模式的尺寸与 `capped`/`upscale`/`reason`、透明度/锐化/去噪/Alpha 阈值/输出规格范围与默认值 |
+| `packages/editor-core/src/image/edges.test.ts` | 9 | 四边边距识别、阈值边界（10/16/100）、全透明特例、裁切不修改源图、无需裁切返回原对象、毛边清理计数与阈值拒绝 |
+| `packages/editor-core/src/image/adjust.test.ts` | 14 | 不透明度取整与恒等副本、组合调整结果、锐化恒等/常量不变/亮点增强/半透明解预乘、去噪中值与强度混合、非法参数拒绝 |
+| `packages/editor-core/src/image/plan.test.ts` | 15 | 裁切内容与指纹、同尺寸不重采样、比例识别与约分、有效 DPI/所需像素/方向/百万像素、三类报告问题与「无问题」正例 |
 
-## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P1，2026-10-19）
+合计：**388 个用例，39 个测试文件**（P0 算法基础：`fixtures` 13 + `png` 7；P1 图案引擎：`pattern/*` 70；P2 图像处理：`image/*` 53）。
+
+## 4. 实际执行结果（t0.2.0 + Algorithm Engine V1 P2，2026-10-19）
 
 ```
 pnpm lint       ->  0 errors / 0 warnings（exit 0）
 pnpm typecheck  ->  9 个项目全部通过
-pnpm test       ->  335 passed / 0 failed（35 个测试文件）
+pnpm test       ->  388 passed / 0 failed（39 个测试文件）
 pnpm build      ->  成功，13 条路由（含 /api/v1/ai/* 3 条）
-pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1，51.4s）
-pnpm bench      ->  5 passed（基准脚本自身断言），约 20s；实测数据见 docs/algorithm-benchmarks.md §9
+pnpm test:e2e   ->  14 passed / 0 failed（desktop 13 + mobile 1，约 60s）
+pnpm bench      ->  6 passed（基准脚本自身断言），约 30s；实测数据见 docs/algorithm-benchmarks.md §9、§10
 ```
 
 构建产物路由：
@@ -155,12 +160,12 @@ pnpm bench      ->  5 passed（基准脚本自身断言），约 20s；实测数
 | 多浏览器兼容测试 | 未执行 | E2E 目前只在本机 Chrome 运行（CI 使用 Chromium，尚未在 GitHub 上跑过） |
 | 可访问性自动化检查 | 未执行 | 未引入 axe 等工具 |
 | 组件级测试（jsdom + Testing Library） | 未执行 | 未引入；属性/图层面板目前由 E2E 间接覆盖 |
-| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 335 个用例之一部分） |
+| **真实 AI Provider 调用** | **未执行（无实现）** | 未选择供应商、无凭据；本阶段刻意不做真实调用，避免产生费用。合约与可靠性行为由模拟 Provider 的用例覆盖（全局 388 个用例之一部分） |
 | AI 接口鉴权与额度 | 未执行 | 项目尚无认证基础设施；接口仅在非生产环境的模拟模式下可用，缺口已记录在 `docs/ai-pipeline.md` §7 |
 | 任务队列持久化 | 未执行 | 内存实现；数据库版依赖 `infra/sql`（未执行） |
 | 支付 / 订阅测试 | 未执行 | 功能尚未实现 |
-| 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 约 20s，5 个基准场景通过；数据见 `docs/algorithm-benchmarks.md` §9。**浏览器与移动端未测**，且同机波动可达 ±40% |
-| 算法视觉质量比对 | **未执行** | P1 已就位，但仍只测数值正确性与确定性；`makeSeamless` / `resizeRaster` / `rotateRaster` 的视觉评分未做 |
+| 性能基准（大画布、多图层） | **已执行（Node 环境）** | `pnpm bench` 约 30s，6 个基准场景通过；数据见 `docs/algorithm-benchmarks.md` §9、§10。**浏览器与移动端未测**，且同机波动可达 ±40% |
+| 算法视觉质量比对 | **未执行** | P1/P2 已就位，但仍只测数值正确性与确定性；`makeSeamless` / `resizeRaster` / `rotateRaster` / `sharpen` / `denoise` 的视觉评分未做 |
 | 本地算法 vs 浏览器像素一致性 | **未执行** | Node 侧像素结果与浏览器 canvas 的一致性尚未验证（P3 必须补） |
 | 云端存储 Provider | 假实现已测；**真实数据库/对象存储未测** | 无 Docker / psql / 云端凭据；`infra/sql/*.sql` 未在真实 Postgres 上执行 |
 | SQL 迁移与 RLS | 未执行 | 同上；文件与验证步骤见 `infra/sql/README.md` |
@@ -172,6 +177,8 @@ pnpm bench      ->  5 passed（基准脚本自身断言），约 20s；实测数
 > **已定位并修复的「时间依赖测试」**：`packages/ai-core/src/verification.test.ts` 有 3 个用例调用了 `toSummary()` 但未传 `now`，`AiVerificationStore` 默认按**真实时钟**判断 24 小时验证有效期，于是硬编码时间戳在跨过 24 小时窗口后失效（2026-10-19 复现：`expected null to be '2026-10-18T09:00:00.000Z'`）。根因是测试依赖墙钟，而非被测逻辑错误。修复：这些用例显式传入 `now`。**约定：任何与时间有关的断言必须注入固定时间，禁止依赖 `Date.now()`。**
 >
 > **由基准测试定位的「真实性能缺陷」（P0）**：`hashRaster` 初版逐字节使用 `BigInt`（FNV-1a 64 位），2048×2048（4.19MP）实测 **2610ms**。修复为两路 32 位 `Math.imul` 混合哈希后降至 **61.8ms**（约 42×），`fixtures.test.ts` 的稳定性与区分度断言保持通过。数据与复现命令见 `docs/algorithm-benchmarks.md`。
+>
+> **由基准测试定位的「真实性能缺陷」（P2）**：`denoise` 首版在每个像素上 `slice().sort()` 分配数组，512×512 实测 **896ms**；改为边界复制采样 + 复用 9 元素数组 + 插入排序求中值后降至 **79ms**（约 11×）。见 `docs/algorithm-benchmarks.md` §10。
 >
 > **由基准测试定位的「真实性能缺陷」（P1）**：图案引擎首版逐像素调用带校验的 `rasterIndex()`，`repeatTile` 1024×1024 实测 **82.5ms**、`buildPattern` 成品 **417ms**。改为整行 `Uint8ClampedArray.set` + 不透明快路径 + 热循环直接索引后降至 **1.3–3.8ms** 与 **91–148ms**（约 22–63× 与 3–4.5×）。同机不同次运行波动可达 ±40%，因此文档只给区间。见 `docs/algorithm-benchmarks.md` §9。
 

@@ -7,3 +7,4 @@ export * from "./errors";
 export * from "./raster";
 export * from "./validate";
 export * from "./pattern";
+export * from "./image";

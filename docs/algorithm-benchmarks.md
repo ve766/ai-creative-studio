@@ -143,3 +143,36 @@
 - 因此上表一律给出**区间**而不是单值；任何「节省 X%」的说法都必须附带区间与复现命令。
 - 复现：`pnpm bench`（约 20 秒，输出 CSV 行 `BENCH|...` 便于机器比对）。
 
+## 10. P2 图像处理测量（2026-10-19，同一台机器）
+
+输入固定：512×512 对角渐变（`fillGradient`）。
+
+| 操作 | 参数 | 单次耗时 |
+| --- | --- | ---: |
+| `applyOpacity` | opacity 0.5 | 4.7–5.5 ms |
+| `cleanAlphaFringe` | threshold 16 | 5.9–8.0 ms |
+| `analyzeTransparentEdges` | threshold 16 | 6.1–7.5 ms |
+| `sharpen` | amount 60, radius 1 | 77–81 ms |
+| `denoise` | strength 60, 3×3 中值 | 79–230 ms |
+| `inspectOutput + buildOutputReport` | 254mm @ 300dpi） | 0.002 ms |
+
+### 10.1 由测量定位并修复的性能缺陷
+
+`denoise` 首版在**每个像素上**执行 `samples.slice(0, count).sort()`，512×512 实测 **896ms**（每次调用产生约 26 万次数组分配）。
+
+修复：
+1. 边界改为**复制边缘**采样，任意位置固定 9 个样本（不再按边界裁剪样本数）。
+2. 复用同一个 9 元素数组，用**插入排序**求中值，零每像素分配。
+3. 预计算 9 个邻域字节偏移，去掉内层 `Math.min/Math.max`。
+
+结果：**896ms → 79ms（约 11×）**，`denoise` 的中值与强度混合测试全部保持通过。
+
+> `denoise` 的 79–230ms 区间跨度较大（该场景只取 3 个采样且排在基准末尾，受前面重负载影响）；**保守应按 230ms 级别对待**。
+
+### 10.2 结论（对 P3 集成的硬性要求）
+
+1. `sharpen` / `denoise` 是**重操作**（0.26MP 约 0.08s，4MP 预计数秒）：只允许在成品阶段异步执行 + 显示运行状态 + 可取消，**禁止进入拖拽/预览路径**。
+2. `applyOpacity`、`cleanAlphaFringe`、`analyzeTransparentEdges`、`inspectOutput` 足够轻量，可用于实时反馈（接缝/有效 DPI 提示等）。
+3. 所有图像处理输出都应通过 `contentHash`（`hashRaster`）记录，用于缓存命中与「结果是否真的变化」的判断。
+
+

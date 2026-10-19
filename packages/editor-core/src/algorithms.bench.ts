@@ -12,6 +12,14 @@ import {
 } from "./fixtures";
 import { decodePng, encodePng } from "./png";
 import { buildPattern, adjustColor, makeSeamless, measureSeams, mirrorTile, repeatTile } from "./pattern";
+import {
+  analyzeTransparentEdges,
+  applyOpacity,
+  buildOutputReport,
+  cleanAlphaFringe,
+  denoise,
+  sharpen
+} from "./image";
 import { planExport } from "./export-budget";
 import { buildPreflightReport } from "./print";
 import { createImageLayer, createProject } from "@acs/project-schema";
@@ -373,6 +381,72 @@ describe("local algorithm baseline (P0)", () => {
       iterations: 5,
       operation: () => {
         makeSeamless(motif, { axis: "both", blend: "medium" });
+      }
+    });
+
+    report();
+    expect(measurements.length).toBeGreaterThan(0);
+  });
+
+  it("measures image processing ops", () => {
+    const size = 512;
+    const image = createRaster(size, size);
+    fillGradient(image, { axis: "diagonal" });
+    const transparentBordered = createRaster(size, size);
+    fillChecker(transparentBordered, { cellSize: 64 });
+
+    measure({
+      name: "applyOpacity 512x512",
+      detail: "opacity 0.5",
+      iterations: 20,
+      operation: () => {
+        applyOpacity(image, 0.5);
+      }
+    });
+
+    measure({
+      name: "sharpen 512x512",
+      detail: "amount 60, radius 1",
+      iterations: 5,
+      operation: () => {
+        sharpen(image, { amount: 60, radius: 1 });
+      }
+    });
+
+    measure({
+      name: "denoise 512x512",
+      detail: "strength 60, 3x3 median",
+      iterations: 3,
+      operation: () => {
+        denoise(image, 60);
+      }
+    });
+
+    measure({
+      name: "analyzeTransparentEdges 512x512",
+      detail: "threshold 16",
+      iterations: 30,
+      operation: () => {
+        analyzeTransparentEdges(image);
+      }
+    });
+
+    measure({
+      name: "cleanAlphaFringe 512x512",
+      detail: "threshold 16",
+      iterations: 10,
+      operation: () => {
+        cleanAlphaFringe(transparentBordered, { threshold: 16 });
+      }
+    });
+
+    measure({
+      name: "inspectOutput + report 512x512",
+      detail: "254mm @ 300dpi",
+      iterations: 300,
+      batchSize: 100,
+      operation: () => {
+        buildOutputReport(image, { widthMm: 254, dpi: 300 });
       }
     });
 
